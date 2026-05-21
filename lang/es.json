@@ -1,0 +1,19 @@
+{
+  "OLATTACK.Open": "Abrir OL Attack",
+  "OLATTACK.NoActor": "Selecciona un token o asigna un personaje al usuario.",
+  "OLATTACK.NoItems": "Este actor no tiene elementos visibles para OL Attack.",
+  "OLATTACK.ConfigTitle": "Configurar lista (OL Attack)",
+  "OLATTACK.Save": "Guardar",
+  "OLATTACK.Cancel": "Cancelar",
+  "OLATTACK.Attack": "Ataque",
+  "OLATTACK.MagicOther": "RASGOS",
+  "OLATTACK.ApplyDamage": "Aplicar Daño",
+  "OLATTACK.ApplyHeal": "Aplicar Curación",
+  "OLATTACK.ToggleDetails": "Ver Detalles",
+  "OLATTACK.HideDetails": "Ocultar Detalles",
+  "OLATTACK.SaveRoll": "Tirada de Salvación",
+  "OLATTACK.GMRollAll": "GM: Tirar por todos",
+  "OLATTACK.WaitingPlayers": "🧑‍🤝‍🧑 Esperando a que cada jugador tire su salvación (usa el botón GM para tirar por todos)",
+  "OLATTACK.SaveRequest": "📣 Tirada de salvación pendiente",
+  "OLATTACK.Concentration": "Concentración"
+}

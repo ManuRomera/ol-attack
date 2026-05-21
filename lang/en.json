@@ -1,0 +1,19 @@
+{
+  "OLATTACK.Open": "Open OL Attack",
+  "OLATTACK.NoActor": "Select a token or assign a character to the user.",
+  "OLATTACK.NoItems": "This actor has no visible items for OL Attack.",
+  "OLATTACK.ConfigTitle": "Configure list (OL Attack)",
+  "OLATTACK.Save": "Save",
+  "OLATTACK.Cancel": "Cancel",
+  "OLATTACK.Attack": "Attack",
+  "OLATTACK.MagicOther": "TRAITS",
+  "OLATTACK.ApplyDamage": "Apply Damage",
+  "OLATTACK.ApplyHeal": "Apply Healing",
+  "OLATTACK.ToggleDetails": "Show Details",
+  "OLATTACK.HideDetails": "Hide Details",
+  "OLATTACK.SaveRoll": "Saving Throw",
+  "OLATTACK.GMRollAll": "GM: Roll for all",
+  "OLATTACK.WaitingPlayers": "🧑‍🤝‍🧑 Waiting for each player to roll their save (use the GM button to roll for all)",
+  "OLATTACK.SaveRequest": "📣 Saving throw pending",
+  "OLATTACK.Concentration": "Concentration"
+}

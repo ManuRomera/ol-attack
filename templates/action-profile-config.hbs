@@ -1,0 +1,545 @@
+<div class="ol-apc">
+  <aside class="ol-apc-sidebar">
+    <div class="ol-apc-topbar">
+      <input class="ol-apc-search" type="text" placeholder="Buscar por nombre, tipo, identifier..." value="{{search}}">
+      <label class="ol-apc-checkline"><input type="checkbox" class="ol-apc-overrides-only" {{#if overridesOnly}}checked{{/if}}> <span>Solo overrides</span></label>
+    </div>
+
+    <div class="ol-apc-tabbar">
+      <button type="button" class="ol-apc-tab {{#if (eq activeTab "catalog")}}active{{/if}}" data-tab="catalog">Catálogo</button>
+      <button type="button" class="ol-apc-tab {{#if (eq activeTab "assistant")}}active{{/if}}" data-tab="assistant">Asistente</button>
+      <button type="button" class="ol-apc-tab {{#if (eq activeTab "profile")}}active{{/if}}" data-tab="profile">Perfil</button>
+      <button type="button" class="ol-apc-tab {{#if (eq activeTab "variants")}}active{{/if}}" data-tab="variants">Variantes</button>
+      <button type="button" class="ol-apc-tab {{#if (eq activeTab "json")}}active{{/if}}" data-tab="json">JSON avanzado</button>
+      <button type="button" class="ol-apc-tab {{#if (eq activeTab "utility")}}active{{/if}}" data-tab="utility">Ayuda</button>
+    </div>
+
+    <div class="ol-apc-list">
+      {{#each catalog as |row|}}
+      <div class="ol-apc-row {{#if row.isSelected}}selected{{/if}}" data-uid="{{row.uid}}" data-search="{{row.searchText}}" data-has-override="{{#if row.hasOverride}}1{{else}}0{{/if}}" data-has-global="{{#if (eq row.resolvedLabel "Global")}}1{{else}}0{{/if}}">
+        <img src="{{row.img}}" onerror="this.src='icons/svg/mystery-man.svg'">
+        <div class="ol-apc-row-body">
+          <div class="ol-apc-row-title">{{row.itemName}}</div>
+          <div class="ol-apc-row-meta">{{row.itemType}} · {{row.identifier}}</div>
+          <div class="ol-apc-row-meta muted">{{row.actorName}}</div>
+          <div class="ol-apc-chipline">
+            <span class="ol-apc-chip">{{row.resolvedMode}}</span>
+            <span class="ol-apc-chip">{{row.resolvedLabel}}</span>
+            {{#if row.hidden}}<span class="ol-apc-chip is-hidden">oculto</span>{{/if}}
+          </div>
+        </div>
+      </div>
+      {{/each}}
+      {{#unless catalog.length}}
+      <div class="ol-apc-empty">No hay elementos que coincidan con el filtro.</div>
+      {{/unless}}
+    </div>
+  </aside>
+
+  <section class="ol-apc-main">
+    {{#if hasSelection}}
+    <header class="ol-apc-summary">
+      <div>
+        <h2>{{selected.itemName}}</h2>
+        <div class="ol-apc-summary-meta">{{selected.itemType}} · identifier: {{selected.identifier}}</div>
+        <div class="ol-apc-summary-meta muted">Fuente visible: {{selected.actorName}}</div>
+      </div>
+      <div class="ol-apc-summary-side">
+        <div>Resolución actual: <b>{{selected.resolvedMode}}</b></div>
+        <div>Origen: {{selected.resolvedSource}}</div>
+      </div>
+    </header>
+
+    {{#if (eq activeTab "catalog")}}
+    <section class="ol-apc-panel">
+      <h3>Resumen del elemento</h3>
+      <div class="ol-apc-data-grid">
+        <div class="k">Tipo</div><div>{{selected.itemType}}</div>
+        <div class="k">Identifier</div><div><code>{{selected.identifier}}</code></div>
+        <div class="k">Clave activa</div><div><code>{{matchKey}}</code></div>
+        <div class="k">Override exacto</div><div>{{#if selected.hasOverride}}Sí{{else}}No{{/if}}</div>
+        <div class="k">Claves robustas disponibles</div>
+        <div>
+          {{#each selected.candidates as |c|}}
+          <div><code>{{c.key}}</code></div>
+          {{/each}}
+        </div>
+      </div>
+      <div class="ol-apc-note">
+        <b>Consejo:</b> si no sabes por dónde empezar, entra en <b>Asistente</b>. Si necesitas control fino, usa <b>Perfil</b>. Si el caso es especial, pasa por <b>Variantes</b>.
+      </div>
+    </section>
+    {{/if}}
+
+    {{#if (eq activeTab "assistant")}}
+    <section class="ol-apc-panel">
+      <div class="ol-apc-panel-head">
+        <div>
+          <h3>Asistente guiado</h3>
+          <p>Responde en lenguaje natural y OL Attack te preparará un perfil base para este elemento.</p>
+        </div>
+        <div class="ol-apc-step-badge">Paso {{assistantStep}} de {{assistantMaxStep}}</div>
+      </div>
+
+      <div class="ol-apc-wizard">
+        {{#if (eq assistantStep 1)}}
+        <div class="ol-apc-wizard-step active">
+          <h4>1. ¿Qué quieres que haga este elemento cuando lo pulses?</h4>
+          <select name="wizMode">
+            {{#each modeOptions as |v|}}<option value="{{v}}" {{#if (eq v ../profile.mode)}}selected{{/if}}>{{v}}</option>{{/each}}
+          </select>
+          <div class="ol-apc-helpbox">
+            <b>{{modeHelp.title}}</b>
+            <p>{{modeHelp.body}}</p>
+            <p class="example">{{modeHelp.example}}</p>
+          </div>
+        </div>
+        {{/if}}
+
+        {{#if (eq assistantStep 2)}}
+        <div class="ol-apc-wizard-step active">
+          <h4>2. ¿De dónde debe salir la tirada o los datos?</h4>
+          <select name="wizRollSource">
+            {{#each sourceOptions as |v|}}<option value="{{v}}" {{#if (eq v ../profile.rollSource)}}selected{{/if}}>{{v}}</option>{{/each}}
+          </select>
+          <div class="ol-apc-helpbox">
+            <b>{{sourceHelp.title}}</b>
+            <p>{{sourceHelp.body}}</p>
+            <p class="example">{{sourceHelp.example}}</p>
+          </div>
+        </div>
+        {{/if}}
+
+        {{#if (eq assistantStep 3)}}
+        <div class="ol-apc-wizard-step active">
+          <h4>3. ¿Qué tarjeta quieres ver en chat?</h4>
+          <select name="wizCardType">
+            {{#each cardOptions as |v|}}<option value="{{v}}" {{#if (eq v ../profile.cardType)}}selected{{/if}}>{{v}}</option>{{/each}}
+          </select>
+          <div class="ol-apc-helpbox">
+            <b>{{cardHelp.title}}</b>
+            <p>{{cardHelp.body}}</p>
+            <p class="example">{{cardHelp.example}}</p>
+          </div>
+        </div>
+        {{/if}}
+
+        {{#if (eq assistantStep 4)}}
+        <div class="ol-apc-wizard-step active">
+          <h4>4. ¿Qué recurso debe gastar?</h4>
+          <select name="wizConsume">
+            {{#each consumeOptions as |v|}}<option value="{{v}}" {{#if (eq v ../profile.consume)}}selected{{/if}}>{{v}}</option>{{/each}}
+          </select>
+          <div class="ol-apc-helpbox">
+            <b>{{consumeHelp.title}}</b>
+            <p>{{consumeHelp.body}}</p>
+            <p class="example">{{consumeHelp.example}}</p>
+          </div>
+        </div>
+        {{/if}}
+
+        {{#if (eq assistantStep 5)}}
+        <div class="ol-apc-wizard-step active">
+          <h4>5. ¿Debe mostrar TS y descripción?</h4>
+          <div class="ol-apc-form-grid two">
+            <div class="ol-apc-field">
+              <label>Salvaciones</label>
+              <select name="wizShowSave">
+                {{#each saveOptions as |v|}}<option value="{{v}}" {{#if (eq v ../profile.showSave)}}selected{{/if}}>{{v}}</option>{{/each}}
+              </select>
+              <p class="ol-apc-field-help">{{saveHelp.body}}</p>
+            </div>
+            <div class="ol-apc-field">
+              <label>Descripción</label>
+              <select name="wizShowDescription">
+                {{#each descriptionOptions as |v|}}<option value="{{v}}" {{#if (eq v ../profile.showDescription)}}selected{{/if}}>{{v}}</option>{{/each}}</select>
+              <p class="ol-apc-field-help">{{descriptionHelp.body}}</p>
+            </div>
+          </div>
+          <div class="ol-apc-helpbox compact">
+            <p class="example">TS: {{saveHelp.example}}</p>
+            <p class="example">Descripción: {{descriptionHelp.example}}</p>
+          </div>
+        </div>
+        {{/if}}
+
+        {{#if (eq assistantStep 6)}}
+        <div class="ol-apc-wizard-step active">
+          <h4>6. ¿Hay alguna necesidad extra?</h4>
+          <div class="ol-apc-form-grid two">
+            <div class="ol-apc-field">
+              <label>Variante rápida</label>
+              <select name="wizVariantPreset">
+                <option value="none" {{#if (eq assistantVariantPreset "none")}}selected{{/if}}>Ninguna</option>
+                <option value="toll-dead-wounded" {{#if (eq assistantVariantPreset "toll-dead-wounded")}}selected{{/if}}>Toll the Dead: d8 → d12 si el objetivo está herido</option>
+              </select>
+              <p class="ol-apc-field-help">Usa esta opción cuando quieras una ayuda rápida para un caso conocido.</p>
+            </div>
+            <div class="ol-apc-field">
+              <label class="ol-apc-checkline big"><input type="checkbox" name="wizHidden" {{#if profile.hidden}}checked{{/if}}> <span>Ocultarlo en la interfaz principal</span></label>
+              <p class="ol-apc-field-help">Oculta el elemento en OL Attack, pero no lo borra de la ficha.</p>
+            </div>
+          </div>
+          <div class="ol-apc-helpbox compact">
+            <p class="example">Ejemplo: si es basura interna del sistema, márcalo como oculto. Si es Toll the Dead, usa la variante rápida.</p>
+          </div>
+        </div>
+        {{/if}}
+      </div>
+
+      <div class="ol-apc-wizard-actions">
+        <button type="button" class="ol-apc-assistant-prev" {{#if (eq assistantStep 1)}}disabled{{/if}}>Anterior</button>
+        <button type="button" class="ol-apc-assistant-next" {{#if (eq assistantStep assistantMaxStep)}}disabled{{/if}}>Siguiente</button>
+        <button type="button" class="ol-apc-assistant-apply primary">Aplicar asistente al perfil</button>
+      </div>
+    </section>
+    {{/if}}
+
+    {{#if (eq activeTab "profile")}}
+    <section class="ol-apc-panel ol-apc-profile-form">
+      <div class="ol-apc-panel-head split">
+        <div>
+          <h3>Perfil detallado</h3>
+          <p>Aquí tienes el control fino. Debajo de cada campo verás qué hace y un ejemplo breve.</p>
+        </div>
+        <div class="ol-apc-note soft">Primero puedes usar el Asistente y luego rematar aquí los detalles.</div>
+      </div>
+
+      <div class="ol-apc-form-grid two">
+        <div class="ol-apc-field full">
+          <label>Clave robusta para el perfil global</label>
+          <select name="matchKey" class="ol-apc-matchkey">
+            {{#each selected.candidates as |c|}}<option value="{{c.key}}" {{#if (eq c.key ../matchKey)}}selected{{/if}}>{{c.label}}</option>{{/each}}
+          </select>
+          <p class="ol-apc-field-help">Esta es la clave a la que se guardará el perfil global. Ejemplo: usa <code>identifier:bardic-inspiration</code> si quieres afectar a todas las Inspiraciones bárdicas equivalentes.</p>
+        </div>
+
+        <div class="ol-apc-field">
+          <label>Modo</label>
+          <select name="mode">{{#each modeOptions as |v|}}<option value="{{v}}" {{#if (eq v ../profile.mode)}}selected{{/if}}>{{v}}</option>{{/each}}</select>
+          <p class="ol-apc-field-help">{{modeHelp.body}}</p>
+          <p class="ol-apc-field-example">{{modeHelp.example}}</p>
+        </div>
+
+        <div class="ol-apc-field">
+          <label>Origen de tirada</label>
+          <select name="rollSource">{{#each sourceOptions as |v|}}<option value="{{v}}" {{#if (eq v ../profile.rollSource)}}selected{{/if}}>{{v}}</option>{{/each}}</select>
+          <p class="ol-apc-field-help">{{sourceHelp.body}}</p>
+          <p class="ol-apc-field-example">{{sourceHelp.example}}</p>
+        </div>
+
+        <div class="ol-apc-field">
+          <label>Activity ID</label>
+          <input type="text" name="activityId" value="{{profile.activityId}}" placeholder="activity-id">
+          <p class="ol-apc-field-help">Solo es útil si el origen está en <b>activity</b>. Si el item tiene varias activities, aquí eliges cuál mandar.</p>
+        </div>
+
+        <div class="ol-apc-field">
+          <label>Tarjeta</label>
+          <select name="cardType">{{#each cardOptions as |v|}}<option value="{{v}}" {{#if (eq v ../profile.cardType)}}selected{{/if}}>{{v}}</option>{{/each}}</select>
+          <p class="ol-apc-field-help">{{cardHelp.body}}</p>
+          <p class="ol-apc-field-example">{{cardHelp.example}}</p>
+        </div>
+
+        <div class="ol-apc-field">
+          <label>Fórmula manual</label>
+          <input type="text" name="manualFormula" value="{{profile.manualFormula}}" placeholder="1d8 + @mod">
+          <p class="ol-apc-field-help">Úsala cuando el item esté mal estructurado y quieras forzar una tirada concreta.</p>
+        </div>
+
+        <div class="ol-apc-field">
+          <label>Tipo/Fuente manual</label>
+          <input type="text" name="manualType" value="{{profile.manualType}}" placeholder="radiant, force, healing...">
+          <p class="ol-apc-field-help">Tipo asociado a la fórmula manual. Ejemplo: <code>radiant</code>, <code>force</code> o <code>healing</code>.</p>
+        </div>
+
+        <div class="ol-apc-field">
+          <label>Consumo</label>
+          <select name="consume">{{#each consumeOptions as |v|}}<option value="{{v}}" {{#if (eq v ../profile.consume)}}selected{{/if}}>{{v}}</option>{{/each}}</select>
+          <p class="ol-apc-field-help">{{consumeHelp.body}}</p>
+          <p class="ol-apc-field-example">{{consumeHelp.example}}</p>
+        </div>
+
+        <div class="ol-apc-field">
+          <label>Choice → curar</label>
+          <select name="choiceConsumeHeal">{{#each consumeOptions as |v|}}<option value="{{v}}" {{#if (eq v ../profile.choiceConsumeHeal)}}selected{{/if}}>{{v}}</option>{{/each}}</select>
+          <p class="ol-apc-field-help">Solo importa si el modo es <b>choice</b>. Define qué gasta cuando eliges curar.</p>
+        </div>
+
+        <div class="ol-apc-field">
+          <label>Choice → dañar</label>
+          <select name="choiceConsumeDamage">{{#each consumeOptions as |v|}}<option value="{{v}}" {{#if (eq v ../profile.choiceConsumeDamage)}}selected{{/if}}>{{v}}</option>{{/each}}</select>
+          <p class="ol-apc-field-help">Solo importa si el modo es <b>choice</b>. Define qué gasta cuando eliges dañar.</p>
+        </div>
+
+        <div class="ol-apc-field">
+          <label>Salvaciones</label>
+          <select name="showSave">{{#each saveOptions as |v|}}<option value="{{v}}" {{#if (eq v ../profile.showSave)}}selected{{/if}}>{{v}}</option>{{/each}}</select>
+          <p class="ol-apc-field-help">{{saveHelp.body}}</p>
+          <p class="ol-apc-field-example">{{saveHelp.example}}</p>
+        </div>
+
+        <div class="ol-apc-field">
+          <label>Descripción</label>
+          <select name="showDescription">{{#each descriptionOptions as |v|}}<option value="{{v}}" {{#if (eq v ../profile.showDescription)}}selected{{/if}}>{{v}}</option>{{/each}}</select>
+          <p class="ol-apc-field-help">{{descriptionHelp.body}}</p>
+          <p class="ol-apc-field-example">{{descriptionHelp.example}}</p>
+        </div>
+
+        <div class="ol-apc-field">
+          <label>Título del recordatorio</label>
+          <input type="text" name="effectNoteTitle" value="{{profile.effectNoteTitle}}" placeholder="Ej: Impacto guiado">
+          <p class="ol-apc-field-help">Muestra un bloque breve en la tarjeta para recordar un efecto adicional que OL Attack no resuelve automáticamente.</p>
+          <p class="ol-apc-field-example">Ejemplo: Guiding Bolt / Saeta guía → “Impacto guiado”.</p>
+        </div>
+
+        <div class="ol-apc-field">
+          <label>Texto del recordatorio</label>
+          <textarea name="effectNoteText" rows="3" placeholder="Describe aquí el efecto posterior o la condición que debe recordarse.">{{profile.effectNoteText}}</textarea>
+          <p class="ol-apc-field-help">Úsalo para riders o consecuencias al impactar, como ventaja al siguiente ataque, reducción de velocidad o restricciones temporales.</p>
+          <p class="ol-apc-field-example">Ejemplo: “Si impacta, la siguiente tirada de ataque contra este objetivo antes del final de tu próximo turno tiene ventaja.”</p>
+        </div>
+
+        <div class="ol-apc-field full">
+          <label class="ol-apc-checkline"><input type="checkbox" name="autoApplyDamageOnFailedSave" {{#if profile.autoApplyDamageOnFailedSave}}checked{{/if}}> <span>Aplicar daño automáticamente al fallar la TS</span></label>
+          <p class="ol-apc-field-help">{{saveFailureDamageHelp.body}}</p>
+          <p class="ol-apc-field-example">{{saveFailureDamageHelp.example}}</p>
+        </div>
+
+        <div class="ol-apc-field">
+          <label class="ol-apc-checkline"><input type="checkbox" name="autoApplyStatusOnFailedSave" {{#if profile.autoApplyStatusOnFailedSave}}checked{{/if}}> <span>Aplicar estado automáticamente al fallar la TS</span></label>
+          <p class="ol-apc-field-help">{{saveFailureStatusHelp.body}}</p>
+          <p class="ol-apc-field-example">{{saveFailureStatusHelp.example}}</p>
+        </div>
+
+        <div class="ol-apc-field">
+          <label>Estado al fallar la TS</label>
+          <select name="saveFailStatusId">
+            <option value="">— Ninguno —</option>
+            {{#each statusOptions as |opt|}}
+              <option value="{{opt.value}}" {{#if (eq opt.value ../profile.saveFailStatusId)}}selected{{/if}}>{{opt.label}}</option>
+            {{/each}}
+          </select>
+          <p class="ol-apc-field-help">Elige el estado que se aplicará automáticamente si la tirada de salvación falla. Solo se usa si activas la casilla anterior.</p>
+        </div>
+
+        <div class="ol-apc-field">
+          <label>specialFeatureKey</label>
+          <input type="text" name="specialFeatureKey" value="{{profile.specialFeatureKey}}" placeholder="rage, reckless, frenzy, sneak...">
+          <p class="ol-apc-field-help">Úsalo para enganchar un rasgo a la lógica especial interna sin depender del nombre visible.</p>
+        </div>
+
+        <div class="ol-apc-field">
+          <label>specialCounterKey</label>
+          <input type="text" name="specialCounterKey" value="{{profile.specialCounterKey}}" placeholder="bardic-inspiration, lucky...">
+          <p class="ol-apc-field-help">Úsalo para enlazar contadores o recursos especiales conocidos por el módulo.</p>
+        </div>
+
+        <div class="ol-apc-field full">
+          <label class="ol-apc-checkline big"><input type="checkbox" name="hidden" {{#if profile.hidden}}checked{{/if}}> <span>Ocultarlo de la interfaz principal</span></label>
+          <p class="ol-apc-field-help">Oculta el elemento en OL Attack. Útil para rasgos pasivos, duplicados o ruido del sistema.</p>
+        </div>
+      </div>
+    </section>
+    {{/if}}
+
+    {{#if (eq activeTab "variants")}}
+    <section class="ol-apc-panel ol-apc-profile-form">
+      <div class="ol-apc-panel-head split">
+        <div>
+          <h3>Variantes y casos especiales</h3>
+          <p>Esta zona es para reglas especiales. Tienes una ayuda rápida arriba y el JSON completo abajo.</p>
+        </div>
+        <div class="ol-apc-note soft">Ejemplo típico: <b>Toll the Dead</b> cambia de d8 a d12 si el objetivo está herido.</div>
+      </div>
+
+      <div class="ol-apc-form-grid two">
+        <div class="ol-apc-field full">
+          <label>Preset rápido</label>
+          <select name="variantPreset" class="ol-apc-variant-preset">
+            <option value="none" {{#if (eq assistantVariantPreset "none")}}selected{{/if}}>Ninguno</option>
+            <option value="toll-dead-wounded" {{#if (eq assistantVariantPreset "toll-dead-wounded")}}selected{{/if}}>Toll the Dead: cambiar el primer dado si el objetivo está herido</option>
+          </select>
+          <p class="ol-apc-field-help">Te deja cubrir casos conocidos sin tocar JSON a mano.</p>
+        </div>
+
+        <div class="ol-apc-field">
+          <label class="ol-apc-checkline"><input type="checkbox" name="tollEnabled" {{#if profile.variants.targetWoundedFirstPart.enabled}}checked{{/if}}> <span>Activar variante “objetivo herido”</span></label>
+          <p class="ol-apc-field-help">Cuando todos los objetivos aplicables estén heridos, cambia la primera parte de daño.</p>
+        </div>
+
+        <div class="ol-apc-field">
+          <label>Dado base</label>
+          <input type="text" name="tollFrom" value="{{profile.variants.targetWoundedFirstPart.from}}" placeholder="d8">
+          <p class="ol-apc-field-help">Valor a buscar en la primera parte. Ejemplo: <code>d8</code>.</p>
+        </div>
+
+        <div class="ol-apc-field">
+          <label>Dado alternativo</label>
+          <input type="text" name="tollTo" value="{{profile.variants.targetWoundedFirstPart.to}}" placeholder="d12">
+          <p class="ol-apc-field-help">Valor por el que se sustituirá. Ejemplo: <code>d12</code>.</p>
+        </div>
+      </div>
+
+      <div class="ol-apc-field full">
+        <label>JSON de variantes</label>
+        <textarea name="variantsJson">{{variantsJson}}</textarea>
+        <p class="ol-apc-field-help">Úsalo cuando necesites un ajuste más fino. Si no lo necesitas, quédate con el preset rápido.</p>
+      </div>
+    </section>
+    {{/if}}
+
+    {{#if (eq activeTab "json")}}
+    <section class="ol-apc-panel">
+      <div class="ol-apc-panel-head split">
+        <div>
+          <h3>Configuración JSON avanzada</h3>
+          <p>Define el comportamiento completo del hechizo o rasgo con un único JSON. Puedes exportarlo, editarlo fuera del módulo e importarlo en otro elemento.</p>
+        </div>
+        <div class="ol-apc-note soft">Usa <code>mode: workflow</code> cuando quieras varias tiradas separadas, pasos encadenados o elecciones avanzadas.</div>
+      </div>
+
+      <div class="ol-apc-helpbox">
+        <b>Qué hace esta pestaña</b>
+        <p>El JSON usa nombres de variables fijos. No vale cualquier nombre. Si el JSON es válido, OL Attack lo convierte en un perfil ejecutable y, si el modo es <code>workflow</code>, lanzará cada paso por separado.</p>
+        <p class="example">Ejemplo real: tres rayos independientes con <code>damageRoll</code> y <code>targeting: "chooseOne"</code>, para elegir un objetivo distinto en cada tirada.</p>
+      </div>
+
+      <div class="ol-apc-json-actions">
+        <button type="button" class="ol-apc-json-validate">Validar JSON</button>
+        <button type="button" class="ol-apc-json-apply primary">Aplicar JSON al perfil</button>
+        <button type="button" class="ol-apc-json-export">Exportar .json</button>
+        <button type="button" class="ol-apc-json-import-trigger">Importar .json</button>
+        <button type="button" class="ol-apc-json-rebuild">Reconstruir desde perfil</button>
+        <button type="button" class="ol-apc-json-example">Cargar ejemplo de 3 rayos</button>
+        <input type="file" accept=".json,application/json" class="ol-apc-json-file" style="display:none;">
+      </div>
+
+      <div class="ol-apc-ai-grid">
+        <div class="ol-apc-helpbox ol-apc-ai-builder">
+          <b>Prompt para IA</b>
+          <p>Copia este prompt y pégalo en tu IA favorita para que te devuelva un JSON compatible con OL Attack. Describe el comportamiento en lenguaje natural y el módulo generará un prompt técnico con el esquema exacto.</p>
+          <div class="ol-apc-form-grid two">
+            <div class="ol-apc-field">
+              <label>Tipo de elemento</label>
+              <select name="aiElementKind" class="ol-apc-ai-field">
+                {{#each aiElementKinds as |opt|}}
+                  <option value="{{opt.value}}" {{#if (eq ../aiPromptMeta.elementKind opt.value)}}selected{{/if}}>{{opt.label}}</option>
+                {{/each}}
+              </select>
+            </div>
+            <div class="ol-apc-field">
+              <label>Patrón sugerido</label>
+              <select name="aiPattern" class="ol-apc-ai-field">
+                {{#each aiPatternOptions as |opt|}}
+                  <option value="{{opt.value}}" {{#if (eq ../aiPromptMeta.pattern opt.value)}}selected{{/if}}>{{opt.label}}</option>
+                {{/each}}
+              </select>
+            </div>
+            <div class="ol-apc-field full">
+              <label>Describe lo que quieres conseguir</label>
+              <textarea name="aiRequest" class="ol-apc-ai-field ol-apc-ai-request" placeholder="Ejemplo: Quiero un hechizo de nivel 1 que haga 4d6 radiante a una criatura a distancia y dé ventaja al siguiente ataque contra ella antes del final de mi siguiente turno.">{{aiPromptMeta.request}}</textarea>
+            </div>
+            <div class="ol-apc-field full">
+              <label>Restricciones o notas extra</label>
+              <textarea name="aiConstraints" class="ol-apc-ai-field ol-apc-ai-constraints" placeholder="Ejemplo: usa mode workflow si hace falta, no inventes claves, quiero que el estado se aplique solo si falla una TS.">{{aiPromptMeta.constraints}}</textarea>
+            </div>
+          </div>
+          <div class="ol-apc-checkstack">
+            <label class="ol-apc-checkline"><input type="checkbox" name="aiIncludeCurrentJson" class="ol-apc-ai-field" {{#if aiPromptMeta.includeCurrentJson}}checked{{/if}}> <span>Incluir el JSON actual como base para que la IA lo modifique</span></label>
+            <label class="ol-apc-checkline"><input type="checkbox" name="aiStrictJsonOnly" class="ol-apc-ai-field" {{#if aiPromptMeta.strictJsonOnly}}checked{{/if}}> <span>Pedir respuesta solo en JSON, sin explicaciones ni markdown</span></label>
+          </div>
+          <div class="ol-apc-ai-actions">
+            <button type="button" class="ol-apc-ai-generate">Regenerar prompt</button>
+            <button type="button" class="ol-apc-ai-copy primary">Copiar prompt</button>
+            <button type="button" class="ol-apc-ai-copy-json">Copiar JSON actual</button>
+          </div>
+        </div>
+
+        <div class="ol-apc-helpbox ol-apc-ai-output">
+          <b>Prompt listo para copiar</b>
+          <p>Este texto está pensado para ChatGPT, Claude, Gemini o cualquier IA similar.</p>
+          <textarea name="aiPromptText" class="ol-apc-ai-prompt" readonly>{{aiPromptText}}</textarea>
+        </div>
+      </div>
+
+      <div class="ol-apc-field full">
+        <label>JSON del elemento</label>
+        <textarea name="actionConfigJson" class="ol-apc-json-editor ol-apc-json-textarea">{{actionJsonText}}</textarea>
+        <p class="ol-apc-field-help">Pulsa <b>Aplicar JSON al perfil</b> para copiar esta configuración al borrador actual. Después guarda como perfil global u override exacto.</p>
+      </div>
+
+      <div class="ol-apc-examples-grid">
+        <div class="ol-apc-helpbox">
+          <b>Campos raíz permitidos</b>
+          <p><code>engine</code>, <code>version</code>, <code>mode</code>, <code>rollSource</code>, <code>activityId</code>, <code>manualFormula</code>, <code>manualType</code>, <code>cardType</code>, <code>consume</code>, <code>choiceConsumeHeal</code>, <code>choiceConsumeDamage</code>, <code>showSave</code>, <code>showDescription</code>, <code>effectNoteTitle</code>, <code>effectNoteText</code>, <code>autoApplyDamageOnFailedSave</code>, <code>autoApplyStatusOnFailedSave</code>, <code>saveFailStatusId</code>, <code>hidden</code>, <code>specialFeatureKey</code>, <code>specialCounterKey</code>, <code>variants</code>, <code>workflow</code>.</p>
+        </div>
+        <div class="ol-apc-helpbox">
+          <b>Tipos de paso permitidos</b>
+          <p><code>damageRoll</code>, <code>healRoll</code>, <code>effectText</code>, <code>applyStatus</code>, <code>removeStatus</code>, <code>choice</code>, <code>bonusDie</code>.</p>
+        </div>
+        <div class="ol-apc-helpbox">
+          <b>targeting permitido</b>
+          <p><code>selected</code>, <code>chooseOne</code>, <code>self</code>, <code>none</code>, <code>targetIndex</code>.</p>
+        </div>
+      </div>
+    </section>
+    {{/if}}
+
+    {{#if (eq activeTab "utility")}}
+    <section class="ol-apc-panel">
+      <h3>Tutorial rápido</h3>
+      <ol class="ol-apc-tutorial-list">
+        {{#each tutorialSteps as |step|}}<li>{{step}}</li>{{/each}}
+      </ol>
+
+      <div class="ol-apc-examples-grid">
+        <div class="ol-apc-helpbox">
+          <b>Ejemplo 1 · Inspiración bárdica</b>
+          <p>Modo: <code>bonusdie</code> · Origen: <code>manual</code> o auto si ya la infiere · Tarjeta: <code>bonusdie</code>.</p>
+        </div>
+        <div class="ol-apc-helpbox">
+          <b>Ejemplo 2 · Divine Spark / Chispa divina</b>
+          <p>Modo: <code>choice</code> · Consumo: <code>choice</code> o <code>uses</code> según tu mesa.</p>
+        </div>
+        <div class="ol-apc-helpbox">
+          <b>Ejemplo 3 · Rage / Furia</b>
+          <p>Modo: <code>effect</code> · specialFeatureKey: <code>rage</code> si quieres enganchar la lógica interna.</p>
+        </div>
+        <div class="ol-apc-helpbox">
+          <b>Ejemplo 4 · Toll the Dead</b>
+          <p>Modo: <code>damage</code> · TS: <code>always</code> si hace falta · Variante rápida de objetivo herido.</p>
+        </div>
+        <div class="ol-apc-helpbox">
+          <b>Ejemplo 5 · Garra de necrófago</b>
+          <p>Modo: <code>damage</code> · TS: <code>always</code> · <code>Aplicar daño automáticamente</code> activado · <code>Aplicar estado automáticamente</code> activado con <code>Paralizado</code>.</p>
+        </div>
+      </div>
+
+      <div class="ol-apc-utility-actions">
+        <button type="button" class="ol-apc-export" title="Saca el registro global en JSON para guardarlo o compartirlo.">Exportar perfiles</button>
+        <button type="button" class="ol-apc-import" title="Carga un JSON exportado previamente y sustituye o amplía tu registro global.">Importar perfiles</button>
+        <button type="button" class="ol-apc-reset-all" title="Borra todo el registro global de perfiles. No toca los overrides exactos guardados en items concretos.">Reset registro global</button>
+        <button type="button" class="ol-apc-delete-global" title="Elimina el perfil global de la clave robusta activa.">Eliminar perfil global activo</button>
+        <button type="button" class="ol-apc-clear-override" title="Elimina la excepción puntual del item seleccionado sin tocar el registro global.">Eliminar override exacto</button>
+      </div>
+    </section>
+    {{/if}}
+
+
+    <div class="ol-apc-footer-help ol-apc-helpbox compact">
+      <p><b>Guardar perfil global</b>: crea una regla reutilizable para todas las copias equivalentes del elemento según la clave robusta elegida. Ejemplo: todas las <i>Inspiraciones bárdicas</i> con el mismo identifier.</p>
+      <p><b>Guardar override exacto</b>: solo toca esta instancia concreta del item en este actor. Úsalo cuando una copia concreta necesite una excepción sin afectar al resto.</p>
+    </div>
+
+    <div class="ol-apc-footer-actions">
+      <button type="button" class="ol-apc-save-global primary">Guardar perfil global</button>
+      <button type="button" class="ol-apc-save-override">Guardar override exacto</button>
+      <button type="button" class="ol-apc-delete-global">Borrar perfil global</button>
+      <button type="button" class="ol-apc-clear-override">Borrar override exacto</button>
+    </div>
+    {{else}}
+    <div class="ol-apc-empty main">No hay selección disponible.</div>
+    {{/if}}
+  </section>
+</div>

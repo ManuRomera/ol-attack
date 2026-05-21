@@ -1,0 +1,187 @@
+<div class="ol-root ol-scene-root ol-scene-player-root {{#if isCombatVertical}}mode-combat-vertical{{else}}mode-combat-horizontal{{/if}}">
+  <button type="button" class="ol-scene-close-btn" data-action="close-monitor" title="Cerrar monitor">✕</button>
+  <div class="ol-header ol-scene-header ultra-compact player-only">
+    <div class="ol-scene-heading-block">
+      <div class="ol-scene-heading-main">
+        <h1>Monitor de combate</h1>
+        <div class="ol-scene-scene-name" title="{{sceneName}}">{{sceneName}}</div>
+      </div>
+      <div class="ol-scene-summary-line" title="Resumen del combate actual">
+        <span class="ol-chip"><span>Vista</span><b>{{visibleSummary}}</b></span>
+        {{#if combatMeta.combatStarted}}<span class="ol-chip active-turn-chip"><span>Ronda</span><b>{{combatMeta.combatRound}}</b></span>{{/if}}
+        {{#if combatMeta.activeName}}<span class="ol-chip active-turn-chip"><span>Turno</span><b>{{combatMeta.activeName}}</b></span>{{/if}}
+        <span class="ol-chip"><span>Ini</span><b>{{combatMeta.rolledCount}}</b></span>
+        <span class="ol-chip"><span>Pend.</span><b>{{combatMeta.pendingCount}}</b></span>
+      </div>
+    </div>
+
+    <div class="ol-scene-toolbar compact-toolbar player-toolbar">
+      <div class="ol-mode-switch compact-switch single" role="tablist" aria-label="Modo del monitor">
+        <button type="button" class="ol-mini-tool ol-mode-btn compact is-active" title="Modo combate">Combate</button>
+      </div>
+      <div class="ol-scene-toolbar-actions">
+        <button type="button" class="ol-mini-tool icon-only" data-action="open-player-config" title="Configurar visualización">⚙</button>
+        <button type="button" class="ol-mini-tool icon-only" data-action="refresh" title="Actualizar">↻</button>
+      </div>
+    </div>
+  </div>
+
+  {{#if hasScene}}
+    <div class="ol-scene-carousel {{#if isCombatVertical}}is-vertical{{else}}is-horizontal{{/if}}" title="Versión resumida para jugadores: el turno activo aparece primero.">
+      {{#each rows}}
+        <section class="ol-card ol-scene-card ol-scene-card-combat {{#if isPC}}is-pc{{/if}} {{#if isActiveTurn}}is-active-turn{{/if}} {{#if isTargetedByUser}}is-targeted-by-user{{/if}} {{#if hasPortraitBackground}}has-bg-portrait{{/if}}" style="{{cardStyle}}" data-token-id="{{tokenId}}">
+          {{#if hasPortraitBackground}}<div class="ol-scene-bg-media" aria-hidden="true">{{#if bgMediaIsVideo}}<video src="{{bgMedia}}" autoplay muted loop playsinline></video>{{else}}<img src="{{bgMedia}}" alt="">{{/if}}</div>{{/if}}
+          {{#if isTargetedByUser}}<div class="ol-scene-target-overlay" aria-hidden="true"></div>{{/if}}
+          <div class="ol-scene-main">
+            {{#if showAvatar}}<img class="ol-scene-avatar" src="{{img}}" alt="{{tokenName}}">{{/if}}
+            <div class="ol-scene-ident">
+              <div class="ol-scene-titleline combat-tight">
+                <div class="ol-scene-titlegroup">
+                  <div class="ol-scene-name">{{tokenName}}</div>
+                  <div class="ol-scene-subline">
+                    <div class="ol-scene-sub">{{#if isPC}}PJ{{else}}PNJ{{/if}}</div>
+                    {{#if showQuickTraits}}
+                    {{#if quickTraits.length}}
+                    <div class="ol-scene-quicktags inline compact">
+                      {{#each quickTraits}}
+                        <span class="ol-scene-quicktag tone-{{tone}}">{{shortLabel}}</span>
+                      {{/each}}
+                    </div>
+                    {{/if}}
+                    {{/if}}
+                  </div>
+                </div>
+                <div class="ol-scene-combat-meta compact-row">
+                  <div class="ol-init-badge {{#unless hasInitiative}}is-pending{{/unless}}">{{#if hasInitiative}}Ini {{initiative}}{{else}}Ini —{{/if}}</div>
+                  {{#if turnIndex}}<div class="ol-turn-badge">Turno {{turnIndex}}</div>{{/if}}
+                  {{#if canRollInitiative}}
+                  <button type="button" class="ol-init-roll-btn ol-mini-tool icon-only" data-action="roll-initiative-one" data-token-id="{{tokenId}}" title="Tirar iniciativa"><i class="fas fa-dice-d20"></i></button>
+                  {{/if}}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {{#if showHP}}
+          <div class="ol-scene-hp-stack">
+            <div class="ol-hpbar ol-hpbar-main">
+              <div class="ol-hpbar-fill" style="{{hp.fillStyle}}"></div>
+              <div class="ol-hpbar-text">PG {{hp.value}} / {{hp.max}}</div>
+            </div>
+            {{#if showTempHP}}
+            <div class="ol-hpbar ol-hpbar-temp {{#if hp.tempActive}}has-temp{{/if}}">
+              <div class="ol-hpbar-fill" style="{{hp.tempFillStyle}}"></div>
+              <div class="ol-hpbar-text">Temp {{hp.temp}}</div>
+            </div>
+            {{/if}}
+          </div>
+          {{/if}}
+
+          {{#if showDeath}}
+          <div class="ol-scene-block ol-deathsave-block">
+            <div class="ol-section-label">TS de muerte</div>
+            <div class="ol-deathsave-row" title="Éxitos {{death.successes}}/3 · Fallos {{death.failures}}/3">
+              <div class="ol-deathsave-track successes">
+                {{#each death.successDots}}
+                  <span class="ol-death-dot success {{#if filled}}filled{{/if}}" title="Éxito {{idx}}"></span>
+                {{/each}}
+              </div>
+              <div class="ol-deathsave-state">{{death.stateLabel}}</div>
+              <div class="ol-deathsave-track failures">
+                {{#each death.failureDots}}
+                  <span class="ol-death-dot failure {{#if filled}}filled{{/if}}" title="Fallo {{idx}}"></span>
+                {{/each}}
+              </div>
+            </div>
+          </div>
+          {{/if}}
+
+          {{#if showResources}}
+          <div class="ol-scene-block">
+            <div class="ol-section-label">Usos limitados</div>
+            <div class="ol-res-chips">
+              {{#if resources.length}}
+                {{#each resources}}
+                  <div class="ol-chip ol-scene-chip {{#if depleted}}depleted{{/if}}" title="{{name}}">
+                    <span>{{shortName}}</span>
+                    <b>{{remaining}}</b>/<span>{{max}}</span>
+                  </div>
+                {{/each}}
+              {{else}}
+                <div class="ol-chip muted">Sin recursos con usos</div>
+              {{/if}}
+            </div>
+          </div>
+          {{/if}}
+
+          {{#if showSpellSlots}}
+          <div class="ol-scene-block">
+            <div class="ol-section-label">Espacios de conjuro</div>
+            <div class="ol-res-chips">
+              {{#if spellSlots.length}}
+                {{#each spellSlots}}
+                  <div class="ol-chip ol-scene-chip {{#if depleted}}depleted{{/if}}" title="{{label}}">
+                    <span>{{shortLabel}}</span>
+                    <b>{{value}}</b>/<span>{{max}}</span>
+                  </div>
+                {{/each}}
+              {{else}}
+                <div class="ol-chip muted">Sin espacios</div>
+              {{/if}}
+            </div>
+          </div>
+          {{/if}}
+
+          {{#if showStatuses}}
+          <div class="ol-scene-block">
+            <div class="ol-section-label">Estados</div>
+            <div class="ol-scene-statuses">
+              {{#if statuses.length}}
+                {{#each statuses}}
+                  <div class="ol-scene-status" title="{{label}}">
+                    <img src="{{icon}}" alt="{{label}}">
+                    <span>{{label}}</span>
+                  </div>
+                {{/each}}
+              {{else}}
+                <div class="ol-chip muted">Sin estados</div>
+              {{/if}}
+            </div>
+          </div>
+          {{/if}}
+
+          {{#if showWeaknesses}}
+          <div class="ol-scene-block">
+            <div class="ol-section-label">Debilidades y defensas</div>
+            {{#if showWeaknessDetails}}
+            <div class="ol-scene-trait-detail-list">
+              <div class="ol-scene-trait-detail-row">
+                <b>Vulnerabilidades</b>
+                <span>{{#if weaknesses.vulnerability.length}}{{#each weaknesses.vulnerability}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}{{else}}Ninguna{{/if}}</span>
+              </div>
+              <div class="ol-scene-trait-detail-row">
+                <b>Resistencias</b>
+                <span>{{#if weaknesses.resistance.length}}{{#each weaknesses.resistance}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}{{else}}Ninguna{{/if}}</span>
+              </div>
+              <div class="ol-scene-trait-detail-row">
+                <b>Inmunidades</b>
+                <span>{{#if weaknesses.immunity.length}}{{#each weaknesses.immunity}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}{{else}}Ninguna{{/if}}</span>
+              </div>
+            </div>
+            {{else}}
+            <div class="ol-res-chips">
+              {{#if weaknesses.vulnerability.length}}<div class="ol-chip"><span>Vuln.</span><b>{{weaknesses.vulnerability.length}}</b></div>{{/if}}
+              {{#if weaknesses.resistance.length}}<div class="ol-chip"><span>Resist.</span><b>{{weaknesses.resistance.length}}</b></div>{{/if}}
+              {{#if weaknesses.immunity.length}}<div class="ol-chip"><span>Inmun.</span><b>{{weaknesses.immunity.length}}</b></div>{{/if}}
+              {{#unless weaknesses.vulnerability.length}}{{#unless weaknesses.resistance.length}}{{#unless weaknesses.immunity.length}}<div class="ol-chip muted">Sin datos visibles</div>{{/unless}}{{/unless}}{{/unless}}
+            </div>
+            {{/if}}
+          </div>
+          {{/if}}
+        </section>
+      {{/each}}
+    </div>
+  {{else}}
+    <div class="ol-card" style="padding:16px;">No hay escena activa.</div>
+  {{/if}}
+</div>

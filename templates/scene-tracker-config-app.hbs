@@ -1,0 +1,173 @@
+<div class="ol-scene-config-root">
+  <section class="ol-scene-config-sidebar">
+    <div class="ol-scene-config-section-head">
+      <div>
+        <div class="ol-scene-config-kicker">Listado</div>
+        <h2>Visibilidad y combate</h2>
+      </div>
+      <p>Marca aquí qué fichas se ven en el monitor y cuáles entran en el modo combate.</p>
+    </div>
+
+    <div class="ol-scene-config-toolbar">
+      <label class="ol-scene-config-search">
+        <i class="fas fa-search"></i>
+        <input type="search" data-role="tokenFilter" value="{{filterTerm}}" placeholder="Buscar ficha, token o tipo...">
+      </label>
+      <div class="ol-scene-config-filterbar">
+        <button type="button" class="ol-scene-config-chip {{#if kindAllSelected}}selected{{/if}}" data-role="kindFilter" data-kind="all">Todos</button>
+        <button type="button" class="ol-scene-config-chip {{#if kindPCSelected}}selected{{/if}}" data-role="kindFilter" data-kind="pc">PJs</button>
+        <button type="button" class="ol-scene-config-chip {{#if kindNPCSelected}}selected{{/if}}" data-role="kindFilter" data-kind="npc">PNJs</button>
+      </div>
+      <div class="ol-scene-config-bulk">
+        <button type="button" class="ol-scene-config-chip" data-role="bulkVisibleFiltered">Ver filtrados</button>
+        <button type="button" class="ol-scene-config-chip" data-role="bulkCombatFiltered">Combate filtrados</button>
+        <button type="button" class="ol-scene-config-chip" data-role="bulkClearFiltered">Limpiar filtrados</button>
+      </div>
+    </div>
+
+    <div class="ol-scene-config-list">
+      {{#each rows}}
+      <article class="ol-scene-config-row {{#if isSelected}}is-selected{{/if}}" data-token-id="{{id}}" data-kind="{{kind}}" data-search="{{search}}">
+        <button type="button" class="ol-scene-config-row-main" data-role="selectToken" data-token-id="{{id}}">
+          <img src="{{avatar}}" alt="{{name}}">
+          <span class="ol-scene-config-row-meta">
+            <strong>{{name}}</strong>
+            <small>{{sub}}</small>
+          </span>
+        </button>
+        <div class="ol-scene-config-row-toggles">
+          <label class="ol-scene-config-toggle">
+            <span>Ver</span>
+            <input type="checkbox" data-role="visible" data-token-id="{{id}}" {{#if visible}}checked{{/if}}>
+          </label>
+          <label class="ol-scene-config-toggle">
+            <span>Combate</span>
+            <input type="checkbox" data-role="combat" data-token-id="{{id}}" {{#if combat}}checked{{/if}}>
+          </label>
+        </div>
+      </article>
+      {{/each}}
+    </div>
+  </section>
+
+  <section class="ol-scene-config-inspector">
+    <div class="ol-scene-config-scroll">
+      <div class="ol-scene-config-section-head">
+        <div>
+          <div class="ol-scene-config-kicker">Inspector</div>
+          <h2>Visual y configuración</h2>
+        </div>
+        <p>Aquí eliges la imagen, la opacidad y el comportamiento del monitor. El campo <b>Archivo / URL</b> siempre está disponible.</p>
+      </div>
+
+      {{#if selected}}
+      <div class="ol-scene-config-card ol-scene-config-selected">
+        <div class="ol-scene-config-selected-head">
+          <img src="{{selected.preview}}" alt="{{selected.name}}">
+          <div class="ol-scene-config-selected-meta">
+            <h3>{{selected.name}}</h3>
+            <p>{{selected.sub}}</p>
+            <span data-role="inspectorResolvedLabel">{{selected.resolvedLabel}}</span>
+          </div>
+        </div>
+
+        <div class="ol-scene-config-subcard">
+          <div class="ol-scene-config-subtitle">Fuente rápida</div>
+          <div class="ol-scene-config-quickbar">
+            {{#each selected.quickButtons}}
+            <button type="button" class="ol-scene-config-chip {{#if selected}}selected{{/if}}" data-role="inspectorQuick" data-mode="{{value}}">{{label}}</button>
+            {{/each}}
+          </div>
+        </div>
+
+        <div class="ol-scene-config-grid two-col">
+          <label class="ol-scene-config-field">
+            <span>Fuente de imagen</span>
+            <select data-role="inspectorImageMode">
+              {{#each selected.modeOptions}}
+              <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+              {{/each}}
+            </select>
+          </label>
+
+          <label class="ol-scene-config-field">
+            <span>Archivo / URL</span>
+            <div class="ol-scene-config-inline">
+              <input type="text" data-role="inspectorImageCustom" value="{{selected.custom}}" placeholder="Ruta del archivo o URL personalizada">
+              <button type="button" class="ol-scene-config-chip solid" data-role="inspectorImageBrowse">Explorar…</button>
+            </div>
+            <small>Si escribes aquí, el monitor usará esta ruta como imagen personalizada.</small>
+          </label>
+        </div>
+
+        <label class="ol-scene-config-field range">
+          <span>Opacidad individual</span>
+          <div class="ol-scene-config-range">
+            <input type="range" data-role="inspectorOpacity" min="0" max="100" step="5" value="{{selected.opacity}}">
+            <b data-role="inspectorOpacityValue">{{selected.opacity}}%</b>
+          </div>
+        </label>
+      </div>
+      {{/if}}
+
+      <div class="ol-scene-config-card">
+        <div class="ol-scene-config-subtitle">Visual general del monitor</div>
+        <div class="ol-scene-config-grid two-col">
+          <label class="ol-scene-config-field checkbox wide">
+            <input type="checkbox" name="usePortraitBackground" {{#if usePortraitBackground}}checked{{/if}}>
+            <span>Usar imagen de actor/token como fondo de la tarjeta</span>
+          </label>
+          <label class="ol-scene-config-field">
+            <span>Orientación del carrusel de combate</span>
+            <select name="combatOrientation">
+              <option value="horizontal" {{#if combatOrientationHorizontal}}selected{{/if}}>Horizontal</option>
+              <option value="vertical" {{#if combatOrientationVertical}}selected{{/if}}>Vertical</option>
+            </select>
+          </label>
+          <label class="ol-scene-config-field range">
+            <span>Opacidad por defecto</span>
+            <div class="ol-scene-config-range">
+              <input type="range" name="backgroundOpacity" min="0" max="100" step="5" value="{{backgroundOpacity}}">
+              <b data-role="backgroundOpacityValue">{{backgroundOpacity}}%</b>
+            </div>
+          </label>
+          <label class="ol-scene-config-field range">
+            <span>Oscurecer fondo para legibilidad</span>
+            <div class="ol-scene-config-range">
+              <input type="range" name="overlayOpacity" min="20" max="90" step="5" value="{{overlayOpacity}}">
+              <b data-role="overlayOpacityValue">{{overlayOpacity}}%</b>
+            </div>
+          </label>
+          <label class="ol-scene-config-field">
+            <span>Ajuste de la imagen</span>
+            <select name="backgroundSize">
+              <option value="cover" {{#if backgroundSizeCover}}selected{{/if}}>Cubrir la tarjeta</option>
+              <option value="contain" {{#if backgroundSizeContain}}selected{{/if}}>Mostrar completa</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div class="ol-scene-config-card">
+        <div class="ol-scene-config-subtitle">Monitor resumido para jugadores</div>
+        <div class="ol-scene-config-grid two-col compact-checks">
+          <label class="ol-scene-config-field checkbox"><input type="checkbox" name="playerShowPCs" {{#if playerShowPCs}}checked{{/if}}><span>Mostrar PJs</span></label>
+          <label class="ol-scene-config-field checkbox"><input type="checkbox" name="playerShowNPCs" {{#if playerShowNPCs}}checked{{/if}}><span>Mostrar PNJs</span></label>
+          <label class="ol-scene-config-field checkbox"><input type="checkbox" name="playerShowHP" {{#if playerShowHP}}checked{{/if}}><span>Mostrar PG</span></label>
+          <label class="ol-scene-config-field checkbox"><input type="checkbox" name="playerShowTempHP" {{#if playerShowTempHP}}checked{{/if}}><span>Mostrar PG temporales</span></label>
+          <label class="ol-scene-config-field checkbox"><input type="checkbox" name="playerShowResources" {{#if playerShowResources}}checked{{/if}}><span>Mostrar usos / recursos</span></label>
+          <label class="ol-scene-config-field checkbox"><input type="checkbox" name="playerShowStatuses" {{#if playerShowStatuses}}checked{{/if}}><span>Mostrar estados</span></label>
+          <label class="ol-scene-config-field checkbox"><input type="checkbox" name="playerShowQuickTraits" {{#if playerShowQuickTraits}}checked{{/if}}><span>Mostrar etiquetas rápidas</span></label>
+          <label class="ol-scene-config-field checkbox"><input type="checkbox" name="playerShowWeaknesses" {{#if playerShowWeaknesses}}checked{{/if}}><span>Mostrar vulnerabilidades / resistencias / inmunidades</span></label>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="ol-scene-config-footer">
+    <button type="button" class="ol-scene-config-chip" data-action="reset-defaults">Restablecer visual</button>
+    <button type="button" class="ol-scene-config-chip" data-action="show-all">Mostrar todo</button>
+    <button type="button" class="ol-scene-config-chip" data-action="cancel">Cancelar</button>
+    <button type="button" class="ol-scene-config-chip primary" data-action="save">Guardar</button>
+  </footer>
+</div>

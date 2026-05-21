@@ -1,0 +1,65 @@
+<form class="ol-syscfg">
+  <section class="ol-syscfg-panel">
+    <div class="ol-syscfg-head">
+      <div>
+        <h2>Compatibilidad de datos</h2>
+        <p>Usa el perfil por defecto de D&D5e 2024 o redefine rutas clave para tu Homebrew sin tocar el código.</p>
+      </div>
+      <button type="button" data-action="reset-defaults">Restaurar D&D5e</button>
+    </div>
+
+    <div class="ol-syscfg-grid two">
+      <label class="ol-syscfg-field">
+        <span>Perfil</span>
+        <select name="profile">
+          <option value="dnd5e-2024" {{#if (eq cfg.profile "dnd5e-2024")}}selected{{/if}}>D&D5e 2024</option>
+          <option value="custom" {{#if (eq cfg.profile "custom")}}selected{{/if}}>Custom / Homebrew</option>
+        </select>
+      </label>
+      <div class="ol-syscfg-note">Las rutas son absolutas dentro del documento Actor, por ejemplo <code>system.attributes.hp.value</code>.</div>
+    </div>
+
+    <div class="ol-syscfg-grid two compact">
+      <label class="ol-syscfg-check"><input type="checkbox" name="allowAnySystemSheetButton" {{#if cfg.allowAnySystemSheetButton}}checked{{/if}}> <span>Mostrar botón en hojas de actor de otros sistemas</span></label>
+      <label class="ol-syscfg-check"><input type="checkbox" name="allowAnySystemTokenHud" {{#if cfg.allowAnySystemTokenHud}}checked{{/if}}> <span>Mostrar botón en HUD de token de otros sistemas</span></label>
+    </div>
+  </section>
+
+  <section class="ol-syscfg-panel">
+    <h3>Vida y defensa</h3>
+    <div class="ol-syscfg-grid two">
+      <label class="ol-syscfg-field"><span>HP actual</span><input type="text" name="hpValuePath" value="{{cfg.hpValuePath}}"></label>
+      <label class="ol-syscfg-field"><span>HP máximo</span><input type="text" name="hpMaxPath" value="{{cfg.hpMaxPath}}"></label>
+      <label class="ol-syscfg-field"><span>HP temporal</span><input type="text" name="hpTempPath" value="{{cfg.hpTempPath}}"></label>
+      <label class="ol-syscfg-field"><span>HP máximo temporal</span><input type="text" name="hpTempMaxPath" value="{{cfg.hpTempMaxPath}}"></label>
+      <label class="ol-syscfg-field"><span>Salvaciones de muerte · éxitos</span><input type="text" name="deathSuccessPath" value="{{cfg.deathSuccessPath}}"></label>
+      <label class="ol-syscfg-field"><span>Salvaciones de muerte · fallos</span><input type="text" name="deathFailurePath" value="{{cfg.deathFailurePath}}"></label>
+      <label class="ol-syscfg-field full"><span>CA / Defensa</span><input type="text" name="acPath" value="{{cfg.acPath}}"></label>
+    </div>
+  </section>
+
+  <section class="ol-syscfg-panel">
+    <h3>Rasgos y magia</h3>
+    <div class="ol-syscfg-grid two">
+      <label class="ol-syscfg-field"><span>Raíz de rasgos</span><input type="text" name="traitsRootPath" value="{{cfg.traitsRootPath}}"></label>
+      <label class="ol-syscfg-field"><span>Raíz de espacios de conjuro</span><input type="text" name="spellSlotsRootPath" value="{{cfg.spellSlotsRootPath}}"></label>
+      <label class="ol-syscfg-field"><span>CD de conjuro</span><input type="text" name="spellDcPath" value="{{cfg.spellDcPath}}"></label>
+      <label class="ol-syscfg-field"><span>Característica de lanzamiento</span><input type="text" name="spellcastingAbilityPath" value="{{cfg.spellcastingAbilityPath}}"></label>
+      <label class="ol-syscfg-field"><span>Raíz de habilidades</span><input type="text" name="abilitiesRootPath" value="{{cfg.abilitiesRootPath}}"></label>
+      <label class="ol-syscfg-field"><span>Bonificador de competencia</span><input type="text" name="profPath" value="{{cfg.profPath}}"></label>
+    </div>
+  </section>
+
+  <section class="ol-syscfg-panel">
+    <h3>Nivel y clases</h3>
+    <div class="ol-syscfg-grid two">
+      <label class="ol-syscfg-field"><span>Raíz de clases</span><input type="text" name="classesPath" value="{{cfg.classesPath}}"></label>
+      <label class="ol-syscfg-field"><span>Nivel del actor</span><input type="text" name="levelPath" value="{{cfg.levelPath}}"></label>
+      <label class="ol-syscfg-field full"><span>CR / desafío</span><input type="text" name="crPath" value="{{cfg.crPath}}"></label>
+    </div>
+  </section>
+
+  <footer class="ol-syscfg-actions">
+    <button type="submit" class="primary">Guardar</button>
+  </footer>
+</form>

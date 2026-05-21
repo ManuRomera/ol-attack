@@ -252,6 +252,7 @@ export function getDamageLedgerView() {
   const pending = lines.filter((line) => !line.deleted && line.status !== "applied");
   const applied = lines.filter((line) => !line.deleted && line.status === "applied");
   const deleted = lines.filter((line) => line.deleted);
+  const undoableDeleted = Array.isArray(st.deletedStack) ? st.deletedStack.length : 0;
   const pendingTotal = pending.reduce((sum, line) => sum + safeNum(line.amount, 0), 0);
 
   return {
@@ -259,7 +260,7 @@ export function getDamageLedgerView() {
     hasLines: lines.length > 0,
     pendingCount: pending.length,
     appliedCount: applied.length,
-    deletedCount: deleted.length,
+    deletedCount: deleted.length + undoableDeleted,
     pendingTotal,
     canApply: pending.length > 0,
     lines: lines.slice(0, 80).map((line) => ({
@@ -288,11 +289,14 @@ export async function toggleDamageLedgerActive() {
 }
 
 export async function deleteDamageLedgerLine(lineId) {
-  const line = getState().lines.find((entry) => entry.id === lineId);
-  if (!line) return;
+  const st = getState();
+  const index = st.lines.findIndex((entry) => entry.id === lineId);
+  if (index < 0) return;
+  const [line] = st.lines.splice(index, 1);
   line.deleted = true;
   line.deletedAt = Date.now();
-  getState().deletedStack.push(line.id);
+  st.deletedStack.push(clone(line));
+  st.deletedStack = st.deletedStack.slice(-30);
   await saveState();
   renderTrackers();
 }
@@ -309,11 +313,23 @@ export async function restoreDamageLedgerLine(lineId) {
 export async function undoDamageLedgerDelete() {
   const st = getState();
   while (st.deletedStack.length) {
-    const lineId = st.deletedStack.pop();
-    const line = st.lines.find((entry) => entry.id === lineId);
-    if (!line?.deleted) continue;
+    const entry = st.deletedStack.pop();
+    if (typeof entry === "string") {
+      const line = st.lines.find((candidate) => candidate.id === entry);
+      if (!line?.deleted) continue;
+      line.deleted = false;
+      line.deletedAt = null;
+      await saveState();
+      renderTrackers();
+      return true;
+    }
+    const line = clone(entry);
+    if (!line) continue;
+    if (st.lines.some((candidate) => candidate.id === line.id)) continue;
     line.deleted = false;
     line.deletedAt = null;
+    line.status = line.status === "applied" ? "pending" : (line.status || "pending");
+    st.lines.unshift(line);
     await saveState();
     renderTrackers();
     return true;
@@ -323,7 +339,8 @@ export async function undoDamageLedgerDelete() {
 
 export async function clearDamageLedgerApplied() {
   const st = getState();
-  st.lines = st.lines.filter((line) => line.status !== "applied");
+  st.lines = st.lines.filter((line) => line.status !== "applied" && !line.deleted);
+  st.deletedStack = [];
   await saveState();
   renderTrackers();
 }
@@ -352,7 +369,10 @@ async function resolveLineActor(line) {
 async function consumeDamageLedgerLine(lineId) {
   const st = getState();
   st.lines = st.lines.filter((entry) => entry.id !== lineId);
-  st.deletedStack = st.deletedStack.filter((id) => id !== lineId);
+  st.deletedStack = st.deletedStack.filter((entry) => {
+    const id = typeof entry === "string" ? entry : entry?.id;
+    return id !== lineId;
+  });
   await saveState();
 }
 

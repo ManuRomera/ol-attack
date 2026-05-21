@@ -421,11 +421,12 @@ const mod = ab ? safeNum(getActorAbilityMod(actor, ab), 0) : 0;
   const resolvedActionProfile = (!isOffhand && item)
     ? (opts?.resolvedActionProfile ? { profile: opts.resolvedActionProfile, source: "passed" } : resolveActionProfile(item, actor))
     : null;
-  const profilePlan = (!isOffhand && item)
+  const manualDamageMode = !isOffhand && opts.dmgMode === "manual";
+  const profilePlan = (!isOffhand && item && !manualDamageMode)
     ? getActionExecutionPlan({ actor, item, profile: resolvedActionProfile?.profile || null, targets, choiceMode: opts?.choiceMode || "", castLevel: safeNum(opts?.spellLevel, safeNum(item?.system?.level, 0)) })
     : null;
 
-  const workflowConfig = (!isOffhand && item) ? getWorkflowConfigFromProfile(resolvedActionProfile?.profile || {}) : null;
+  const workflowConfig = (!isOffhand && item && !manualDamageMode) ? getWorkflowConfigFromProfile(resolvedActionProfile?.profile || {}) : null;
   if (workflowConfig?.workflow?.steps?.length) {
     return _runWorkflowAction({ actor, token, item, opts, resolvedActionProfile, targets });
   }
@@ -438,8 +439,8 @@ const mod = ab ? safeNum(getActorAbilityMod(actor, ab), 0) : 0;
     parts = [{ formula: String(opts.offhandFormula || "1d6"), type: String(opts.offhandDamageType || "bludgeoning"), label: "Mano Débil" }];
   } else {
     const castLevel = safeNum(opts.spellLevel, safeNum(item?.system?.level, 0));
-    parts = opts.dmgMode === "manual"
-      ? [{ formula: String(opts.manualFormula || "0"), type: String(opts.manualType || "bludgeoning") }]
+    parts = manualDamageMode
+      ? [{ formula: sanitizeFormulaLoose(opts.manualFormula || "0") || "0", type: String(opts.manualType || "bludgeoning"), label: "Manual" }]
       : getDamagePartsDetailed(item, { abilityMod: mod, upcastLevel: castLevel, actor });
     healParts = getHealingPartsDetailed(item, { upcastLevel: castLevel, actor });
   }

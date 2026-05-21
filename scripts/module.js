@@ -6,6 +6,7 @@ import { registerSheetButtons } from "./ui/sheet-buttons.js";
 import { registerChatHandlers } from "./chat/chat-handlers.js";
 import { registerDamageLedger } from "./lib/damage-ledger.js";
 import { installHotbarMacros } from "./lib/hotbar-macros.js";
+import { registerWindowLayoutPersistence } from "./lib/window-layout.js";
 import { OLAttackAPI } from "./api.js";
 
 Hooks.once("init", () => {
@@ -19,6 +20,7 @@ Hooks.once("init", () => {
 Hooks.once("ready", () => {
   registerSocket();
   registerDamageLedger();
+  registerWindowLayoutPersistence();
   registerChatHandlers();
   registerSheetButtons();
   installHotbarMacros();

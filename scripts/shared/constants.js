@@ -17,6 +17,7 @@ export const FLAG_ACTION_PROFILE_OVERRIDE = "ol-attack-action-profile-override";
 export const SETTING_ACTION_PROFILE_REGISTRY = "actionProfileRegistry";
 export const SETTING_PROFILE_WINDOW_STATE = "actionProfileWindowState";
 
+export const SETTING_WINDOW_LAYOUT_STATE = "windowLayoutState";
 export const SETTING_SCENE_TRACKER_WINDOW_STATE = "sceneTrackerWindowState";
 export const SETTING_DAMAGE_LEDGER_STATE = "damageLedgerState";
 

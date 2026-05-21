@@ -1,4 +1,4 @@
-import { MODULE_ID, SETTING_ACTION_PROFILE_REGISTRY, SETTING_PROFILE_WINDOW_STATE, SETTING_SCENE_TRACKER_WINDOW_STATE, SETTING_DAMAGE_LEDGER_STATE, SETTING_PLAYER_SCENE_PUBLIC_STATE, SETTING_PLAYER_SCENE_WINDOW_STATE, SETTING_SYSTEM_ADAPTER_CONFIG } from "./constants.js";
+import { MODULE_ID, SETTING_ACTION_PROFILE_REGISTRY, SETTING_PROFILE_WINDOW_STATE, SETTING_WINDOW_LAYOUT_STATE, SETTING_SCENE_TRACKER_WINDOW_STATE, SETTING_DAMAGE_LEDGER_STATE, SETTING_PLAYER_SCENE_PUBLIC_STATE, SETTING_PLAYER_SCENE_WINDOW_STATE, SETTING_SYSTEM_ADAPTER_CONFIG } from "./constants.js";
 import { ActionProfileConfigApp } from "../ui/action-profile-config.js";
 import { SystemAdapterConfigApp } from "../ui/system-adapter-config.js";
 import { getDefaultSystemAdapterConfig } from "./system-data.js";
@@ -28,6 +28,15 @@ export function registerSettings() {
     config: false,
     type: Object,
     default: { profiles: {} }
+  });
+
+  game.settings.register(MODULE_ID, SETTING_WINDOW_LAYOUT_STATE, {
+    name: "OL Attack Window Layout State",
+    hint: "Posición y tamaño de ventanas del módulo por usuario.",
+    scope: "client",
+    config: false,
+    type: Object,
+    default: { windows: {} }
   });
 
   game.settings.register(MODULE_ID, SETTING_SCENE_TRACKER_WINDOW_STATE, {

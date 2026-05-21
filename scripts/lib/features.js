@@ -2,25 +2,51 @@ import { gp, safeNum } from "./utils.js";
 import { getItemUses } from "./uses.js";
 import { resolveActionProfile } from "./action-profiles.js";
 
+function norm(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+export function isMultiattackItem(item, actor = null) {
+  if (!item) return false;
+  const profileKey = String(resolveActionProfile(item, actor)?.profile?.specialFeatureKey || "");
+  if (profileKey === "multiattack") return true;
+
+  const hay = [
+    item.name,
+    gp(item, "system.identifier"),
+    gp(item, "system.type.value"),
+    gp(item, "system.activation.type"),
+    gp(item, "system.description.value")
+  ].map(norm).join(" ");
+
+  return hay.includes("multiattack")
+    || hay.includes("multiataque")
+    || hay.includes("ataque multiple")
+    || hay.includes("acciones multiples");
+}
+
 export function getActorFeatures(actor) {
   if (!actor) return {};
   const items = actor.items;
 
-  const values = items?.contents || items || [];
+  const values = Array.isArray(items?.contents) ? items.contents : Array.from(items || []);
   const findItem = (regex, featureKey = "") => {
     if (featureKey) {
       const viaProfile = values.find((i) => String(resolveActionProfile(i, actor)?.profile?.specialFeatureKey || "") === featureKey);
       if (viaProfile) return viaProfile;
     }
-    if (values instanceof Array) return values.find((i) => i.name.match(regex));
-    if (typeof values.find === "function") return values.find((i) => i.name.match(regex));
-    return null;
+    return values.find((i) => String(i?.name || "").match(regex)) || null;
   };
 
   const hasRage = !!findItem(/Rage|Furia/i, "rage");
   const hasReckless = !!findItem(/Reckless|Temerario/i, "reckless");
   const hasFrenzy = !!findItem(/Frenzy|Frenesí/i, "frenzy");
-  const hasMultiattack = !!findItem(/Multiattack|Multiataque/i);
+  const multiattackItem = values.find((i) => isMultiattackItem(i, actor)) || null;
+  const hasMultiattack = !!multiattackItem;
   const rageBonus = safeNum(gp(actor, "system.scale.barbarian.rage-damage"), 2);
 
   const hasSneak = !!findItem(/Sneak Attack|Ataque Furtivo/i, "sneak");
@@ -55,6 +81,7 @@ export function getActorFeatures(actor) {
     hasReckless,
     hasFrenzy,
     hasMultiattack,
+    multiattackItemId: multiattackItem?.id ?? null,
     rageBonus,
     hasSneak,
     sneakFormula,

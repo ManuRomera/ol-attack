@@ -241,7 +241,7 @@ export async function markPendingDamageApplied(payload = {}, { remote = false } 
   line.externalAppliedAmount = safeNum(payload.appliedTotal, 0);
   line.after = actor ? getActorHpData(actor) : null;
 
-  await saveState();
+  await consumeDamageLedgerLine(line.id);
   renderTrackers();
   return true;
 }
@@ -338,8 +338,22 @@ export async function clearDamageLedgerAll() {
 }
 
 async function resolveLineActor(line) {
-  const tokenDoc = line?.target?.tokenUuid ? await fromUuid(line.target.tokenUuid).catch(() => null) : null;
-  return tokenDoc?.actor || (line?.target?.actorUuid ? await fromUuid(line.target.actorUuid).catch(() => null) : null);
+  const tokenUuid = String(line?.target?.tokenUuid || "").trim();
+  const actorUuid = String(line?.target?.actorUuid || "").trim();
+  const tokenDoc = tokenUuid ? await fromUuid(tokenUuid).catch(() => null) : null;
+  if (tokenDoc?.actor) return tokenDoc.actor;
+  if (actorUuid) {
+    const actor = await fromUuid(actorUuid).catch(() => null);
+    if (actor?.documentName === "Actor" || actor?.type) return actor;
+  }
+  return null;
+}
+
+async function consumeDamageLedgerLine(lineId) {
+  const st = getState();
+  st.lines = st.lines.filter((entry) => entry.id !== lineId);
+  st.deletedStack = st.deletedStack.filter((id) => id !== lineId);
+  await saveState();
 }
 
 export async function applyDamageLedgerLine(lineId) {
@@ -373,7 +387,7 @@ export async function applyDamageLedgerLine(lineId) {
   line.after = getActorHpData(actor);
   line.externalAppliedAmount = totalApplied;
 
-  await saveState();
+  await consumeDamageLedgerLine(line.id);
   renderTrackers();
 
   return {

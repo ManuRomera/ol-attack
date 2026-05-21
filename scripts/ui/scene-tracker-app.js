@@ -1358,12 +1358,14 @@ export class OLSceneTrackerApp extends LegacyApplication {
 
     html.on('click', '[data-action="toggle-damage-ledger"]', async (ev) => {
       ev.preventDefault();
+      ev.stopPropagation();
       await toggleDamageLedgerActive();
       this.render(true);
     });
 
     html.on('click', '[data-action="apply-damage-ledger-all"]', async (ev) => {
       ev.preventDefault();
+      ev.stopPropagation();
       await applyAllPendingDamageLedger();
       this.render(true);
     });
@@ -1399,6 +1401,7 @@ export class OLSceneTrackerApp extends LegacyApplication {
 
     html.on('click', '[data-action="undo-damage-ledger-delete"]', async (ev) => {
       ev.preventDefault();
+      ev.stopPropagation();
       const restored = await undoDamageLedgerDelete();
       if (!restored) ui.notifications?.warn?.('No hay borrados para deshacer.');
       this.render(true);
@@ -1406,12 +1409,14 @@ export class OLSceneTrackerApp extends LegacyApplication {
 
     html.on('click', '[data-action="clear-damage-ledger-applied"]', async (ev) => {
       ev.preventDefault();
+      ev.stopPropagation();
       await clearDamageLedgerApplied();
       this.render(true);
     });
 
     html.on('click', '[data-action="clear-damage-ledger-all"]', async (ev) => {
       ev.preventDefault();
+      ev.stopPropagation();
       const ok = window.confirm('¿Vaciar todo el historial de daño pendiente?');
       if (!ok) return;
       await clearDamageLedgerAll();

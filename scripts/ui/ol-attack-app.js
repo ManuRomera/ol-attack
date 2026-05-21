@@ -3,7 +3,7 @@ import { LegacyApplication, LegacyDialog } from "../shared/compat.js";
 import { getActorHpData, updateActorHpData } from "../shared/system-data.js";
 import { gp, safeNum, escapeHtml, cleanDiceBonus, sanitizeFormulaLoose } from "../lib/utils.js";
 import { getAttackItems, isCombatItem, getEquippedWeapons, getWeaponDamageType, getActorDamageBonusFormula, autoAbilityForItem } from "../lib/actor.js";
-import { getActorFeatures } from "../lib/features.js";
+import { getActorFeatures, isMultiattackItem } from "../lib/features.js";
 import { getExhaustionInfo } from "../lib/exhaustion.js";
 import { getAvailableSpellSlots, hasMagicActor, consumeSpellSlot, getSpellLevel } from "../lib/spells.js";
 import { migrateUserPrefsToActorIfNeeded, saveActorPrefs } from "../lib/prefs.js";
@@ -345,8 +345,9 @@ export class OLAttackApp extends LegacyApplication {
 
     // Multiattack (PNJ): mostrar descripción completa del rasgo en la macro
     if (features?.hasMultiattack) {
-      const mi = actor.items?.find?.((i) => /Multiattack|Multiataque/i.test(String(i?.name || "")))
-        || actor.items?.contents?.find?.((i) => /Multiattack|Multiataque/i.test(String(i?.name || "")));
+      const mi = (features.multiattackItemId ? actor.items.get(features.multiattackItemId) : null)
+        || actor.items?.find?.((i) => isMultiattackItem(i, actor))
+        || actor.items?.contents?.find?.((i) => isMultiattackItem(i, actor));
       if (mi) {
         const raw = (gp(mi, "system.description.value") ?? gp(mi, "system.description") ?? "");
         let enriched = "";
@@ -374,12 +375,21 @@ export class OLAttackApp extends LegacyApplication {
     }
 
     const allItemsUnsorted = allAttackItems.filter(i => visibilityMap?.[i.id] !== false && !isItemHiddenByProfile(i, actor));
+    const knownItemIds = new Set(allItemsUnsorted.map((i) => i.id));
+    const readableFeatures = Array.from(actor.items?.contents || actor.items || [])
+      .filter((i) => i?.type !== "spell" && i?.type !== "weapon")
+      .filter((i) => !knownItemIds.has(i.id))
+      .filter((i) => visibilityMap?.[i.id] !== false && !isItemHiddenByProfile(i, actor))
+      .filter((i) => isMultiattackItem(i, actor) || String(gp(i, "system.description.value") || "").trim());
 
     const combatItems = allItemsUnsorted.filter(i => isCombatItem(i))
       .sort((a,b) => gp(a, "system.equipped") === gp(b, "system.equipped") ? a.name.localeCompare(b.name) : gp(a, "system.equipped") ? -1 : 1);
 
     const utilitySpells = allItemsUnsorted.filter(i => i.type === "spell" && !isCombatItem(i)).sort((a,b) => a.name.localeCompare(b.name));
-    const utilityFeatures = allItemsUnsorted.filter(i => i.type !== "spell" && i.type !== "weapon" && !isCombatItem(i));
+    const utilityFeatures = [
+      ...allItemsUnsorted.filter(i => i.type !== "spell" && i.type !== "weapon" && !isCombatItem(i)),
+      ...readableFeatures
+    ].sort((a, b) => a.name.localeCompare(b.name));
 
     // ============================
     // Agrupar conjuros por nivel (Trucos, Nivel 1..9)
@@ -1673,5 +1683,4 @@ async function getConcentrationInfo(actor) {
   } catch {}
   return { active: false, name: "" };
 }
-
 

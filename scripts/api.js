@@ -68,6 +68,7 @@ export class OLAttackAPI {
       return this.reopenPlayerSceneTracker();
     }
     if (this._sceneTracker?.rendered) {
+      if (opts?.displayMode) this._sceneTracker.displayMode = String(opts.displayMode);
       this._sceneTracker.render(true);
       return this._sceneTracker;
     }

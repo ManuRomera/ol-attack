@@ -32,6 +32,65 @@
     </div>
   </div>
 
+  <section class="ol-card ol-damage-ledger compact {{#unless damageLedger.active}}is-paused{{/unless}}">
+    <div class="ol-damage-ledger-head">
+      <div class="ol-damage-ledger-title">
+        <strong>Daño pendiente</strong>
+        <span>{{#if damageLedger.active}}ON{{else}}Pausado{{/if}}</span>
+      </div>
+      <div class="ol-damage-ledger-summary">
+        <span class="ol-chip {{#if damageLedger.pendingCount}}depleted{{/if}}"><span>Pend.</span><b>{{damageLedger.pendingCount}}</b></span>
+        <span class="ol-chip damage-total"><span>Daño</span><b>{{damageLedger.pendingTotal}}</b></span>
+        <span class="ol-chip"><span>Aplic.</span><b>{{damageLedger.appliedCount}}</b></span>
+        <span class="ol-chip"><span>Borr.</span><b>{{damageLedger.deletedCount}}</b></span>
+      </div>
+      <div class="ol-damage-ledger-actions">
+        <button type="button" class="ol-mini-tool" data-action="toggle-damage-ledger" title="Activar o pausar el registro de daño">{{#if damageLedger.active}}Pausar{{else}}Activar{{/if}}</button>
+        <button type="button" class="ol-mini-tool primary" data-action="apply-damage-ledger-all" {{#unless damageLedger.canApply}}disabled{{/unless}} title="Aplicar todo el daño pendiente">Aplicar {{damageLedger.pendingTotal}}</button>
+        <button type="button" class="ol-mini-tool icon-only" data-action="undo-damage-ledger-delete" title="Deshacer último borrado">↩</button>
+        <button type="button" class="ol-mini-tool" data-action="clear-damage-ledger-applied" title="Limpiar daño ya aplicado">Limpiar</button>
+        <button type="button" class="ol-mini-tool danger" data-action="clear-damage-ledger-all" title="Vaciar todo el historial">Vaciar</button>
+      </div>
+    </div>
+
+    <div class="ol-damage-ledger-list">
+      {{#if damageLedger.hasLines}}
+        {{#each damageLedger.lines}}
+          <div class="ol-damage-ledger-line {{statusClass}}">
+            <div class="ol-damage-ledger-amount" title="{{amount}} {{damageTypeLabel}}">
+              <b>{{amount}}</b>
+              <span>{{damageTypeLabel}}</span>
+            </div>
+            <div class="ol-damage-ledger-route">
+              <div class="ol-damage-ledger-names" title="{{sourceName}} → {{targetName}}">
+                <img src="{{sourceImg}}" alt="{{sourceName}}">
+                <span>{{sourceName}}</span>
+                <i>→</i>
+                <img src="{{targetImg}}" alt="{{targetName}}">
+                <strong>{{targetName}}</strong>
+              </div>
+              <div class="ol-damage-ledger-detail" title="{{label}} {{formulaLabel}}">
+                <span>{{label}}</span>
+                {{#if formulaLabel}}<code>{{formulaLabel}}</code>{{/if}}
+              </div>
+            </div>
+            <div class="ol-damage-ledger-state {{statusClass}}">{{statusText}}</div>
+            <div class="ol-damage-ledger-line-actions">
+              {{#if canRestore}}
+                <button type="button" class="ol-mini-tool icon-only" data-action="restore-damage-ledger-line" data-line-id="{{id}}" title="Restaurar">↩</button>
+              {{else}}
+                <button type="button" class="ol-mini-tool icon-only primary" data-action="apply-damage-ledger-line" data-line-id="{{id}}" title="Aplicar esta línea" {{#unless canApplyLine}}disabled{{/unless}}>✓</button>
+                <button type="button" class="ol-mini-tool icon-only danger" data-action="delete-damage-ledger-line" data-line-id="{{id}}" title="Borrar">×</button>
+              {{/if}}
+            </div>
+          </div>
+        {{/each}}
+      {{else}}
+        <div class="ol-damage-ledger-empty">Esperando daño de OL Attack.</div>
+      {{/if}}
+    </div>
+  </section>
+
   {{#if hasScene}}
     {{#if isCombatMode}}
       <div class="ol-card ol-scene-combat-toolbar-card compact ultra-compact {{#if isCombatVertical}}is-vertical{{else}}is-horizontal{{/if}}">
@@ -55,64 +114,6 @@
           </div>
         </div>
       </div>
-      <section class="ol-card ol-damage-ledger compact {{#unless damageLedger.active}}is-paused{{/unless}}">
-        <div class="ol-damage-ledger-head">
-          <div class="ol-damage-ledger-title">
-            <strong>Daño pendiente</strong>
-            <span>{{#if damageLedger.active}}ON{{else}}Pausado{{/if}}</span>
-          </div>
-          <div class="ol-damage-ledger-summary">
-            <span class="ol-chip {{#if damageLedger.pendingCount}}depleted{{/if}}"><span>Pend.</span><b>{{damageLedger.pendingCount}}</b></span>
-            <span class="ol-chip damage-total"><span>Daño</span><b>{{damageLedger.pendingTotal}}</b></span>
-            <span class="ol-chip"><span>Aplic.</span><b>{{damageLedger.appliedCount}}</b></span>
-            <span class="ol-chip"><span>Borr.</span><b>{{damageLedger.deletedCount}}</b></span>
-          </div>
-          <div class="ol-damage-ledger-actions">
-            <button type="button" class="ol-mini-tool" data-action="toggle-damage-ledger" title="Activar o pausar el registro de daño">{{#if damageLedger.active}}Pausar{{else}}Activar{{/if}}</button>
-            <button type="button" class="ol-mini-tool primary" data-action="apply-damage-ledger-all" {{#unless damageLedger.canApply}}disabled{{/unless}} title="Aplicar todo el daño pendiente">Aplicar {{damageLedger.pendingTotal}}</button>
-            <button type="button" class="ol-mini-tool icon-only" data-action="undo-damage-ledger-delete" title="Deshacer último borrado">↩</button>
-            <button type="button" class="ol-mini-tool" data-action="clear-damage-ledger-applied" title="Limpiar daño ya aplicado">Limpiar</button>
-            <button type="button" class="ol-mini-tool danger" data-action="clear-damage-ledger-all" title="Vaciar todo el historial">Vaciar</button>
-          </div>
-        </div>
-
-        <div class="ol-damage-ledger-list">
-          {{#if damageLedger.hasLines}}
-            {{#each damageLedger.lines}}
-              <div class="ol-damage-ledger-line {{statusClass}}">
-                <div class="ol-damage-ledger-amount" title="{{amount}} {{damageTypeLabel}}">
-                  <b>{{amount}}</b>
-                  <span>{{damageTypeLabel}}</span>
-                </div>
-                <div class="ol-damage-ledger-route">
-                  <div class="ol-damage-ledger-names" title="{{sourceName}} → {{targetName}}">
-                    <img src="{{sourceImg}}" alt="{{sourceName}}">
-                    <span>{{sourceName}}</span>
-                    <i>→</i>
-                    <img src="{{targetImg}}" alt="{{targetName}}">
-                    <strong>{{targetName}}</strong>
-                  </div>
-                  <div class="ol-damage-ledger-detail" title="{{label}} {{formulaLabel}}">
-                    <span>{{label}}</span>
-                    {{#if formulaLabel}}<code>{{formulaLabel}}</code>{{/if}}
-                  </div>
-                </div>
-                <div class="ol-damage-ledger-state {{statusClass}}">{{statusText}}</div>
-                <div class="ol-damage-ledger-line-actions">
-                  {{#if canRestore}}
-                    <button type="button" class="ol-mini-tool icon-only" data-action="restore-damage-ledger-line" data-line-id="{{id}}" title="Restaurar">↩</button>
-                  {{else}}
-                    <button type="button" class="ol-mini-tool icon-only primary" data-action="apply-damage-ledger-line" data-line-id="{{id}}" title="Aplicar esta línea" {{#unless canApplyLine}}disabled{{/unless}}>✓</button>
-                    <button type="button" class="ol-mini-tool icon-only danger" data-action="delete-damage-ledger-line" data-line-id="{{id}}" title="Borrar">×</button>
-                  {{/if}}
-                </div>
-              </div>
-            {{/each}}
-          {{else}}
-            <div class="ol-damage-ledger-empty">Esperando daño de OL Attack.</div>
-          {{/if}}
-        </div>
-      </section>
       <div class="ol-scene-carousel {{#if isCombatVertical}}is-vertical{{else}}is-horizontal{{/if}}" title="Carrusel de combate: el turno activo aparece primero. La orientación se cambia desde Configurar monitor de escena.">
         {{#each rows}}
           <section class="ol-card ol-scene-card ol-scene-card-combat {{#if isPC}}is-pc{{/if}} {{#if hidden}}is-hidden{{/if}} {{#if isActiveTurn}}is-active-turn{{/if}} {{#if isGmHandled}}is-gm-handled{{/if}} {{#if isTargetedByUser}}is-targeted-by-user{{/if}} {{#if hasPortraitBackground}}has-bg-portrait{{/if}}" style="{{cardStyle}}" data-token-id="{{tokenId}}" title="Click: centrar token · Doble click: abrir macro · Botón derecho: opciones rápidas">

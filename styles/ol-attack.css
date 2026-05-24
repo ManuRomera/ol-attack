@@ -3978,6 +3978,12 @@ body.ol-window-dragging, body.ol-window-dragging *{
 .ol-scene-config-field.checkbox.wide{
   grid-column: 1 / -1;
 }
+.ol-scene-config-note{
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: rgba(44,31,16,.72);
+}
 .ol-scene-config-range{
   display: grid;
   grid-template-columns: minmax(0,1fr) auto;

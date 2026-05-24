@@ -235,6 +235,27 @@ function _buildCombatMetaLocal(rows = [], publicMeta = {}) {
   };
 }
 
+function _redactEnemyRow(row) {
+  row.hp = _getHpDisplay({ value: 0, max: 0, temp: 0 });
+  row.death = { visible: false, successes: 0, failures: 0, stateLabel: '', successDots: [], failureDots: [] };
+  row.resources = [];
+  row.spellSlots = [];
+  row.statuses = [];
+  row.quickTraits = [];
+  row.weaknesses = { vulnerability: [], resistance: [], immunity: [] };
+  row.showHP = false;
+  row.showTempHP = false;
+  row.showDeath = false;
+  row.showResources = false;
+  row.showSpellSlots = false;
+  row.showStatuses = false;
+  row.showQuickTraits = false;
+  row.showWeaknesses = false;
+  row.showWeaknessDetails = false;
+  row.enemyPrivate = true;
+  return row;
+}
+
 function _buildRow(token, extra = {}, visuals = _defaultVisualSettings()) {
   const actor = token?.actor;
   const portraits = _pickPortraits(actor, token, extra.imageChoice || {});
@@ -352,6 +373,7 @@ export class OLSceneTrackerPlayerApp extends LegacyApplication {
       if (!token?.actor) continue;
       const isPC = !!token.actor.hasPlayerOwner;
       const owned = _isOwnedByCurrentUser(token.actor);
+      const enemyPrivate = !owned && !isPC;
       if (!owned && isPC && !playerCfg.showPCs) continue;
       if (!owned && !isPC && !playerCfg.showNPCs) continue;
       const row = _buildRow(token, {
@@ -364,15 +386,19 @@ export class OLSceneTrackerPlayerApp extends LegacyApplication {
         showAllResources: owned,
         imageChoice: imageChoiceMap[id] || {}
       }, visuals);
-      row.showHP = owned || !!playerCfg.showHP;
-      row.showTempHP = owned || !!playerCfg.showTempHP;
-      row.showResources = owned || !!playerCfg.showResources;
-      row.showSpellSlots = owned;
-      row.showStatuses = owned || !!playerCfg.showStatuses;
-      row.showQuickTraits = owned || !!playerCfg.showQuickTraits;
-      row.showWeaknesses = owned || !!playerCfg.showWeaknesses;
-      row.showWeaknessDetails = owned;
-      row.showDeath = owned && !!row.death?.visible;
+      if (enemyPrivate) {
+        _redactEnemyRow(row);
+      } else {
+        row.showHP = owned || !!playerCfg.showHP;
+        row.showTempHP = owned || !!playerCfg.showTempHP;
+        row.showResources = owned || !!playerCfg.showResources;
+        row.showSpellSlots = owned;
+        row.showStatuses = owned || !!playerCfg.showStatuses;
+        row.showQuickTraits = owned || !!playerCfg.showQuickTraits;
+        row.showWeaknesses = owned || !!playerCfg.showWeaknesses;
+        row.showWeaknessDetails = owned;
+        row.showDeath = owned && !!row.death?.visible;
+      }
       row.isOwnedByUser = owned;
       row.pendingInitiative = !row.hasInitiative;
       row.canRollInitiative = row.isOwnedByUser && !row.hasInitiative;

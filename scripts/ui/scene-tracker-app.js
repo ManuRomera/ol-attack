@@ -1647,6 +1647,7 @@ export class OLSceneTrackerApp extends LegacyApplication {
                     <input type="checkbox" name="playerShowWeaknesses" ${this.playerViewConfig?.showWeaknesses ? 'checked' : ''}>
                     <span>Mostrar vulnerabilidades / resistencias / inmunidades</span>
                   </label>
+                  <p class="ol-monitor-conf-hint">La vida, recursos, estados, rasgos especiales y resistencias de PNJs no controlados nunca se muestran a jugadores.</p>
                 </div>
               </div>
             </div>

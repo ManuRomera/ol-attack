@@ -75,6 +75,8 @@ export function getActorFeatures(actor) {
   const wailsUses = hasWails ? getItemUses(wailsItem) : { max: 0, remaining: 0 };
 
   const hasSavage = !!findItem(/Savage Attacker|Atacante Salvaje/i, "savage");
+  const hexItem = findItem(/\bHex\b|Maldici[oó]n|Maleficio/i, "hex");
+  const hasHex = !!hexItem;
 
   return {
     hasRage,
@@ -89,6 +91,9 @@ export function getActorFeatures(actor) {
     hasWails,
     wailsFormula,
     wailsItemId: wailsItem?.id ?? null,
-    wailsUses: { max: wailsUses.max ?? 0, remaining: wailsUses.remaining ?? 0 }
+    wailsUses: { max: wailsUses.max ?? 0, remaining: wailsUses.remaining ?? 0 },
+    hasHex,
+    hexFormula: "1d6",
+    hexItemId: hexItem?.id ?? null
   };
 }

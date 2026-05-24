@@ -5,15 +5,15 @@ import { getExhaustionInfo } from "../lib/exhaustion.js";
 import { getDamagePartsDetailed, getHealingPartsDetailed, inferHpGrantParts } from "../lib/damage.js";
 import { getItemUses, consumeItemUse } from "../lib/uses.js";
 import { inferBonusDie, inferAutoEffectRoll } from "../lib/trait-infer.js";
-import { getSavesFromItem, buildSaveDefs, renderSavesHtml } from "../lib/saves.js";
+import { getSavesFromItem, buildSaveDefs, renderSavesHtml, getSaveSuccessDamageMode } from "../lib/saves.js";
 import { getItemTags } from "../lib/tags.js";
 import { getAttackBypassTags } from "../lib/riv.js";
 import { addPendingDamageLines } from "../lib/damage-ledger.js";
-import { prepareRoll, makeAdjustedRoll } from "./rolls.js";
+import { prepareRoll } from "./rolls.js";
 import { resolveActionProfile, getActionExecutionPlan, getWorkflowConfigFromProfile, validateActionConfigJson, mergeProfile } from "../lib/action-profiles.js";
 import { setStatusOnSubject } from "../lib/statuses.js";
 import { LegacyDialog } from "../shared/compat.js";
-import { getActorHpData, getActorAbilityMod, getActorProfValue, getActorAcValue } from "../shared/system-data.js";
+import { getActorHpData, getActorAbilityMod, getActorProfValue } from "../shared/system-data.js";
 
 
 
@@ -413,11 +413,6 @@ const mod = ab ? safeNum(getActorAbilityMod(actor, ab), 0) : 0;
     if (actorDmgBonusRaw && /^[0-9+\-*/().\s]+$/.test(actorDmgBonusRaw)) actorDmgBonusSafe = actorDmgBonusRaw;
   }
 
-  const defense = (isHomebrew && !opts.disableDefense && targets.length === 1)
-    ? (safeNum(getActorAcValue(targets[0]?.actor), NaN) - 10)
-    : null;
-  const applyDefense = Number.isFinite(defense) && defense > 0;
-
   const resolvedActionProfile = (!isOffhand && item)
     ? (opts?.resolvedActionProfile ? { profile: opts.resolvedActionProfile, source: "passed" } : resolveActionProfile(item, actor))
     : null;
@@ -550,6 +545,7 @@ const mod = ab ? safeNum(getActorAbilityMod(actor, ab), 0) : 0;
     // Frenesí (Berserker) es fijo en esta macro: +2d6
     if (opts.applyFrenzy) extras.push({ formula: `2d6`, type: rollParts[0]?.type || "bludgeoning", label: "Frenesí" });
     if (opts.applySneak && opts.sneakFormula) extras.push({ formula: String(opts.sneakFormula), type: rollParts[0]?.type || "bludgeoning", label: "Ataque Furtivo" });
+    if (opts.applyHex && opts.hexFormula) extras.push({ formula: String(opts.hexFormula), type: "necrotic", label: "Maldición" });
     if (opts.applyExtraDice && opts.extraDiceFormula) extras.push({ formula: String(opts.extraDiceFormula), type: rollParts[0]?.type || "bludgeoning", label: opts.extraDiceLabel || "Dados extra" });
   }
   rollParts = [...rollParts, ...extras];
@@ -585,18 +581,19 @@ const mod = ab ? safeNum(getActorAbilityMod(actor, ab), 0) : 0;
     let bonusApplied = "";
 
     if (cardKind === "damage" && i === 0 && !isOffhand) {
+      const allowAutoDamageAddons = opts.dmgMode !== "manual";
       if (isHomebrew) {
         const allowHomebrewAbilityMod = !(item?.type === "spell" && opts.ability === "auto");
-        if (opts.dmgMode !== "manual" && allowHomebrewAbilityMod && mod) { f += ` + ${mod}`; sumMod = mod; }
-        if (prof) { f += ` + ${prof}`; sumProf = prof; }
-        if (temp) { f += ` + ${temp}`; sumTemp = temp; }
-        if (opts.applyRage) f += ` + ${safeNum(opts.rageBonus, 0)}`;
-        if (ex.level > 0 && exhaustionPenalty > 0) { f += ` - ${exhaustionPenalty}`; sumExh = -exhaustionPenalty; }
+        if (allowAutoDamageAddons && allowHomebrewAbilityMod && mod) { f += ` + ${mod}`; sumMod = mod; }
+        if (allowAutoDamageAddons && prof) { f += ` + ${prof}`; sumProf = prof; }
+        if (allowAutoDamageAddons && temp) { f += ` + ${temp}`; sumTemp = temp; }
+        if (allowAutoDamageAddons && opts.applyRage) f += ` + ${safeNum(opts.rageBonus, 0)}`;
+        if (allowAutoDamageAddons && ex.level > 0 && exhaustionPenalty > 0) { f += ` - ${exhaustionPenalty}`; sumExh = -exhaustionPenalty; }
 
         // Bonos/penalizadores de estados (si son numéricos)
-        if (actorDmgBonusSafe) { f += ` + (${actorDmgBonusSafe})`; bonusApplied = actorDmgBonusSafe; }
+        if (allowAutoDamageAddons && actorDmgBonusSafe) { f += ` + (${actorDmgBonusSafe})`; bonusApplied = actorDmgBonusSafe; }
       } else {
-        if (temp) { f += ` + ${temp}`; sumTemp = temp; }
+        if (allowAutoDamageAddons && temp) { f += ` + ${temp}`; sumTemp = temp; }
       }
 
       // Atacante Salvaje se gestiona como reroll del daño del arma (más abajo), no como sustitución de fórmula.
@@ -630,7 +627,7 @@ const mod = ab ? safeNum(getActorAbilityMod(actor, ab), 0) : 0;
         } catch {}
       }
 
-      const rageVal = (isHomebrew && opts.applyRage) ? safeNum(opts.rageBonus, 0) : 0;
+      const rageVal = (isHomebrew && opts.applyRage && opts.dmgMode !== "manual") ? safeNum(opts.rageBonus, 0) : 0;
       const adds = [sumMod, sumProf, sumTemp, rageVal, sumExh, bonusVal];
 
       chosen = augmentRoll(baseChosen, adds);
@@ -643,11 +640,6 @@ const mod = ab ? safeNum(getActorAbilityMod(actor, ab), 0) : 0;
     else if (game.dice3d) dice3dPromises.push(game.dice3d.showForRoll(chosen, game.user, true));
 
     let rollTotal = chosen.total;
-    if (cardKind === "damage" && i === 0 && applyDefense) {
-      chosen = makeAdjustedRoll(chosen, defense);
-      if (other) other = makeAdjustedRoll(other, defense);
-      rollTotal = chosen.total; sumDef = -defense;
-    }
 
     total += rollTotal;
     appData.push({ amount: rollTotal, type: part.type || "bludgeoning", applyCurrent: !!part.applyCurrent, formula: chosen.formula || part.formula || "", label: part.label || "" });
@@ -666,7 +658,6 @@ const mod = ab ? safeNum(getActorAbilityMod(actor, ab), 0) : 0;
           Fórmula: <code>${escapeHtml(chosen.formula)}</code><br>
           Dados: <span style="color:#a00; font-weight:bold;">${escapeHtml(diceResults)}</span> = <b>${chosen.total}</b>
           ${other ? `<br>Tirada Doble: [${other.total}] vs [${chosen.total}]` : ""}
-          ${applyDefense && i === 0 && cardKind === "damage" ? `<br>Defensa Homebrew (CA-10): -${defense} al daño` : ""}
           ${ex.level > 0 && isHomebrew && i === 0 && cardKind === "damage" ? `<br>😮‍💨 Cansancio ${ex.level} → -${exhaustionPenalty} (solo daño)` : ""}
           ${bonusApplied ? `<br>🧩 Bonos/Estados (actor): <code>${escapeHtml(bonusApplied)}</code>` : ""}
           ${part.isScaled ? `<br>🔮 Aumentado por Upcast` : ""}
@@ -720,6 +711,7 @@ const mod = ab ? safeNum(getActorAbilityMod(actor, ab), 0) : 0;
   // Saves
   const suppressSavesForItem = item && isTollTheDeadItem(item, actor) && profilePlan?.showSaves !== true;
   const saves = (opts.showSaves && item && !suppressSavesForItem) ? await getSavesFromItem(item, actor, { isHomebrew }) : [];
+  const saveSuccessDamageMode = (cardKind === "damage" && saves.length) ? getSaveSuccessDamageMode(item) : "none";
   const saveDefs = buildSaveDefs({ rollTitle: opts.rollTitle, saves });
   const saveTrack = {};
   const savesHtml = saveDefs.length ? renderSavesHtml({ saveDefs, targetsMeta, saveTrack }) : "";
@@ -732,6 +724,7 @@ const mod = ab ? safeNum(getActorAbilityMod(actor, ab), 0) : 0;
     sneak: !!opts.applySneak,
     savage: !!opts.applySavage,
     offhand: isOffhand,
+    hex: !!opts.applyHex,
     extraDice: !!opts.applyExtraDice,
     isHomebrew,
     castLevel: opts.castLevelUp ? opts.spellLevel : null
@@ -798,6 +791,7 @@ const mod = ab ? safeNum(getActorAbilityMod(actor, ab), 0) : 0;
           attackTags,
           templateUuid: null,
           saveDefs,
+          saveSuccessDamageMode,
           saveTrack: {},
           cardKind,
           damagePayload: cardKind === "damage" ? appData : [],
@@ -829,7 +823,8 @@ const mod = ab ? safeNum(getActorAbilityMod(actor, ab), 0) : 0;
       parts: appData,
       damageType: appData[0]?.type || "damage",
       systemMode: isHomebrew ? "homebrew" : "normal",
-      attackTags
+      attackTags,
+      saveSuccessDamageMode
     });
   }
 

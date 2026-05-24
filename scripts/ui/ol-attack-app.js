@@ -221,12 +221,22 @@ function _findFeatureItem(actor, kind) {
     frenzy: [/Frenzy|Frenes[ií]/i],
     sneak: [/Sneak Attack|Ataque\s+Furtivo/i],
     savage: [/Savage Attacker|Atacante\s+Salvaje/i],
-    wails: [/Wails from the Grave|Lamentos\s+desde\s+la\s+tumba|Lamentos\s+de\s+la\s+tumba/i]
+    wails: [/Wails from the Grave|Lamentos\s+desde\s+la\s+tumba|Lamentos\s+de\s+la\s+tumba/i],
+    hex: [/\bHex\b|Maldici[oó]n|Maleficio/i]
   };
   const regs = matchers[kind] || [];
   return items.find((it) => regs.some((rgx) => rgx.test(String(it?.name || "")) || rgx.test(String(gp(it, "system.identifier") || "")))) || null;
 }
 
+function _actorHpWillChange(changes) {
+  const flat = foundry.utils.flattenObject(changes || {});
+  return Object.keys(flat).some((key) => (
+    key === "system.attributes.hp.value"
+    || key === "system.attributes.hp.temp"
+    || key.endsWith(".system.attributes.hp.value")
+    || key.endsWith(".system.attributes.hp.temp")
+  ));
+}
 
 function _getLimitedUseState(item) {
   const uses = getItemUses(item);
@@ -313,6 +323,8 @@ export class OLAttackApp extends LegacyApplication {
     this._prefsSaveDelay = 250;
     this._prefsSaveInFlight = null;
     this._windowStateSaveTimer = null;
+    this._refreshHookFns = [];
+    this._renderRefreshTimer = null;
   }
 
   static get defaultOptions() {
@@ -538,7 +550,51 @@ const specialCounters = _getSpecialCounters(actor);
     if (!Number.isFinite(options.top) && Number.isFinite(st.top)) options.top = st.top;
     if (!Number.isFinite(options.width) && Number.isFinite(st.width)) options.width = st.width;
     if (!Number.isFinite(options.height) && Number.isFinite(st.height)) options.height = st.height;
-    return super._render(force, options);
+    const out = await super._render(force, options);
+    this._registerRefreshHooks();
+    return out;
+  }
+
+  _isOwnActor(actor) {
+    if (!actor || !this.actor) return false;
+    return actor.uuid === this.actor.uuid || actor.id === this.actor.id;
+  }
+
+  _queueActorRefresh() {
+    clearTimeout(this._renderRefreshTimer);
+    this._renderRefreshTimer = setTimeout(() => {
+      this._renderRefreshTimer = null;
+      try {
+        if (this.rendered) this.render(false);
+      } catch (_) {}
+    }, 80);
+  }
+
+  _registerRefreshHooks() {
+    if (this._refreshHookFns.length) return;
+    const on = (hookName, fn) => {
+      Hooks.on(hookName, fn);
+      this._refreshHookFns.push({ hookName, fn });
+    };
+    on("updateActor", (actor, changes) => {
+      if (this._isOwnActor(actor) && _actorHpWillChange(changes)) this._queueActorRefresh();
+    });
+    on("updateToken", (tokenDoc, changes) => {
+      if (tokenDoc?.actor && this._isOwnActor(tokenDoc.actor) && _actorHpWillChange(changes)) this._queueActorRefresh();
+    });
+    on("updateActiveEffect", (effect) => {
+      const actor = effect?.parent?.documentName === "Actor" ? effect.parent : effect?.parent?.actor || null;
+      if (this._isOwnActor(actor)) this._queueActorRefresh();
+    });
+  }
+
+  _unregisterRefreshHooks() {
+    for (const entry of this._refreshHookFns) {
+      try { Hooks.off(entry.hookName, entry.fn); } catch (_) {}
+    }
+    this._refreshHookFns = [];
+    clearTimeout(this._renderRefreshTimer);
+    this._renderRefreshTimer = null;
   }
 
   setPosition(position = {}) {
@@ -856,6 +912,8 @@ form.on("click", ".ol-counter-chip", (ev) => {
 
   async close(options) {
     clearTimeout(this._windowStateSaveTimer);
+    this._unregisterRefreshHooks();
+    try { Hooks.callAll("closeOLAttackApp", this); } catch (_) {}
     await this._saveWindowState();
     await this._flushPrefsPersistence();
     return super.close(options);
@@ -1090,6 +1148,7 @@ form.on("click", ".ol-counter-chip", (ev) => {
     if (p.useSneak !== undefined) form.find('input[name="useSneak"]').prop("checked", !!p.useSneak);
     if (p.useSavage !== undefined) form.find('input[name="useSavage"]').prop("checked", !!p.useSavage);
     if (p.useWails !== undefined) form.find('input[name="useWails"]').prop("checked", !!p.useWails);
+    if (p.useHex !== undefined) form.find('input[name="useHex"]').prop("checked", !!p.useHex);
 
     this._toggleExtra(form);
   }
@@ -1119,7 +1178,8 @@ form.on("click", ".ol-counter-chip", (ev) => {
       useFrenzy: getBool('input[name="useFrenzy"]'),
       useSneak: getBool('input[name="useSneak"]'),
       useSavage: getBool('input[name="useSavage"]'),
-      useWails: getBool('input[name="useWails"]')
+      useWails: getBool('input[name="useWails"]'),
+      useHex: getBool('input[name="useHex"]')
     };
     this._allPrefs.lastUsedItemId = id;
     this._dirtyPrefs = true;
@@ -1227,6 +1287,7 @@ form.on("click", ".ol-counter-chip", (ev) => {
     const applyRage = isHomebrew && form.find('input[name="useRage"]').is(":checked");
     const applyFrenzy = isHomebrew && form.find('input[name="useFrenzy"]').is(":checked");
     const applySneak = isHomebrew && form.find('input[name="useSneak"]').is(":checked");
+    const applyHex = form.find('input[name="useHex"]').is(":checked");
 
     const useExtra = form.find('input[name="useExtraDice"]').is(":checked");
     const extraDice = useExtra ? cleanDiceBonus(form.find('input[name="extraDiceFormula"]').val()) : "";
@@ -1256,11 +1317,11 @@ form.on("click", ".ol-counter-chip", (ev) => {
       const abilitySel = form.find('select[name="ability"]').val();
       const isSpellItem = item?.type === "spell";
       if (!isManual && abilitySel !== "none" && !(isSpellItem && abilitySel === "auto")) mods.push("+MOD");
-      if (prof) mods.push("+PROF");
+      if (!isManual && prof) mods.push("+PROF");
 
       // Rasgos/Extras en fórmula (para que se vean al seleccionar)
       const feats = getActorFeatures(this.actor);
-      if (applyRage) mods.push(`+${safeNum(feats.rageBonus, 0)} (Furia)`);
+      if (!isManual && applyRage) mods.push(`+${safeNum(feats.rageBonus, 0)} (Furia)`);
       if (applyFrenzy) mods.push(`+2d6 (Frenesí)`);
       if (applySneak && feats.sneakFormula && feats.sneakFormula !== "0") mods.push(`+${feats.sneakFormula} (Furtivo)`);
 
@@ -1274,7 +1335,11 @@ form.on("click", ".ol-counter-chip", (ev) => {
         mods.push(`+(${rawBonus}) (Estados)`);
       }
     }
-    if (temp) mods.push(temp >= 0 ? `+${temp}` : `${temp}`);
+    if (applyHex) {
+      const feats = getActorFeatures(this.actor);
+      if (feats.hexFormula) mods.push(`+${feats.hexFormula} (Maldición)`);
+    }
+    if (!isManual && temp) mods.push(temp >= 0 ? `+${temp}` : `${temp}`);
 
     let extraTxt = "";
     if (useExtra && extraDice) extraTxt = ` + ${extraDice}${extraLabel ? ` (${extraLabel})` : " (Dados extra)"}`;
@@ -1362,6 +1427,7 @@ form.on("click", ".ol-counter-chip", (ev) => {
     let applySneak = form.find('input[name="useSneak"]').is(":checked");
     let applySavage = form.find('input[name="useSavage"]').is(":checked");
     let applyWails = form.find('input[name="useWails"]').is(":checked");
+    let applyHex = form.find('input[name="useHex"]').is(":checked");
 
     const useExtraDice = form.find('input[name="useExtraDice"]').is(":checked");
     const extraDiceFormula = cleanDiceBonus(form.find('input[name="extraDiceFormula"]').val());
@@ -1421,7 +1487,8 @@ form.on("click", ".ol-counter-chip", (ev) => {
       { enabled: applyFrenzy, set: (v) => { applyFrenzy = v; }, kind: "frenzy", toggleName: "useFrenzy", autoUncheck: true },
       { enabled: applySneak, set: (v) => { applySneak = v; }, kind: "sneak", toggleName: "useSneak", autoUncheck: true },
       { enabled: applySavage, set: (v) => { applySavage = v; }, kind: "savage", toggleName: "useSavage", autoUncheck: true },
-      { enabled: applyWails, set: (v) => { applyWails = v; }, kind: "wails", toggleName: "useWails", autoUncheck: true }
+      { enabled: applyWails, set: (v) => { applyWails = v; }, kind: "wails", toggleName: "useWails", autoUncheck: true },
+      { enabled: applyHex, set: (v) => { applyHex = v; }, kind: "hex", toggleName: "useHex", autoUncheck: false }
     ];
 
     for (const checkDef of limitedFeatureChecks) {
@@ -1468,6 +1535,7 @@ form.on("click", ".ol-counter-chip", (ev) => {
       applySneak,
       applySavage,
       applyWails,
+      applyHex,
       applyExtraDice: useExtraDice && !!extraDiceFormula,
       extraDiceFormula,
       extraDiceLabel,
@@ -1480,6 +1548,7 @@ form.on("click", ".ol-counter-chip", (ev) => {
       // needed values for workflow
       rageBonus: features.rageBonus,
       sneakFormula: features.sneakFormula,
+      hexFormula: features.hexFormula,
       resolvedActionProfile: resolvedActionProfile?.profile || null
     };
 
@@ -1683,4 +1752,3 @@ async function getConcentrationInfo(actor) {
   } catch {}
   return { active: false, name: "" };
 }
-

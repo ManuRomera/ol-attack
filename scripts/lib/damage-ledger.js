@@ -105,6 +105,16 @@ function compactFormula(parts = []) {
   return parts.map((part) => String(part?.formula || "").trim()).filter(Boolean).join(" + ");
 }
 
+function scaleParts(parts = [], scale = 1) {
+  const factor = Math.max(0, safeNum(scale, 1));
+  return parts
+    .map((part) => ({
+      ...part,
+      amount: Math.max(0, Math.floor(safeNum(part?.amount, 0) * factor))
+    }))
+    .filter((part) => part.amount > 0);
+}
+
 function markProcessed(key) {
   const st = getState();
   if (!st.processedKeys.includes(key)) st.processedKeys.push(key);
@@ -209,9 +219,12 @@ export async function addPendingDamageLines(payload = {}, { remote = false } = {
       target,
       amount,
       parts: clone(cleanParts),
+      originalParts: clone(cleanParts),
       formula: compactFormula(cleanParts),
       label: String(payload.label || payload.itemName || "Daño"),
       damageType: payload.damageType || firstType(cleanParts),
+      messageId: payload.messageId || null,
+      saveSuccessDamageMode: payload.saveSuccessDamageMode || "none",
       status: "pending",
       deleted: false,
       appliedBy: null,
@@ -236,6 +249,59 @@ export async function addPendingDamageLines(payload = {}, { remote = false } = {
     renderTrackers();
   }
   return added;
+}
+
+export async function adjustPendingDamageForSave(payload = {}, { remote = false } = {}) {
+  if (!game.user?.isGM) {
+    if (!remote) {
+      game.socket?.emit?.(SOCKET_NS, {
+        type: "damageLedgerAdjustSave",
+        payload: clone({
+          ...payload,
+          sourceUserId: game.user?.id || null,
+          sourceUserName: game.user?.name || null
+        })
+      });
+    }
+    return 0;
+  }
+
+  const messageId = String(payload.messageId || "").trim();
+  const actorUuid = payload.actorUuid || null;
+  const tokenUuid = payload.tokenUuid || null;
+  const scale = Math.max(0, safeNum(payload.scale, 1));
+  const reason = String(payload.reason || "").trim();
+  const st = getState();
+  let changed = 0;
+
+  st.lines = st.lines.filter((line) => {
+    if (!line || line.deleted || line.status === "applied") return true;
+    const sameMessage = !messageId || line.messageId === messageId || String(line.key || "").startsWith(`${messageId}:`);
+    if (!sameMessage || !sameActorOrToken(line, actorUuid, tokenUuid)) return true;
+
+    if (!Array.isArray(line.originalParts) || !line.originalParts.length) {
+      line.originalParts = clone(line.parts || []);
+    }
+
+    const nextParts = scaleParts(line.originalParts, scale);
+    if (!nextParts.length) {
+      changed += 1;
+      return false;
+    }
+
+    line.parts = clone(nextParts);
+    line.amount = Math.floor(amountFromParts(nextParts));
+    line.formula = scale === 1 ? compactFormula(nextParts) : `${compactFormula(line.originalParts)} × ${scale}`;
+    line.saveAdjusted = scale === 1 ? null : { scale, reason };
+    changed += 1;
+    return true;
+  });
+
+  if (changed) {
+    await saveState();
+    renderTrackers();
+  }
+  return changed;
 }
 
 function findBestPendingLine({ actorUuid = null, tokenUuid = null, amount = 0 } = {}) {
@@ -439,12 +505,13 @@ export async function applyDamageLedgerLine(lineId) {
   let totalApplied = 0;
   const isHomebrew = line.systemMode === "homebrew";
 
-  for (const part of line.parts || []) {
+  for (const [index, part] of (line.parts || []).entries()) {
     const amount = Math.max(0, Math.floor(safeNum(part.amount, 0)));
     if (!amount) continue;
     const res = await applyDamageToActor(actor, amount, part.type || line.damageType || "bludgeoning", {
       homebrew: isHomebrew,
-      attackTags: Array.isArray(line.attackTags) ? line.attackTags : []
+      attackTags: Array.isArray(line.attackTags) ? line.attackTags : [],
+      disableDefense: index > 0
     });
     totalApplied += safeNum(res?.applied, 0);
     details.push(`${amount}->${safeNum(res?.applied, 0)} ${part.type || line.damageType || "damage"}${res?.modified ? ` (${res.modifier || ""})` : ""}`);

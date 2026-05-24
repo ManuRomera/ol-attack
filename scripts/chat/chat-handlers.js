@@ -1,8 +1,8 @@
 import { FLAG_SCOPE, FLAG_KEY, SOCKET_NS } from "../shared/constants.js";
 import { LegacyDialog } from "../shared/compat.js";
 import { gp, escapeHtml, safeNum, translateAbility, enrichDescription } from "../lib/utils.js";
-import { applyDamageToActor, applyHealingToActor, getDamageModifiers } from "../lib/damage.js";
-import { markPendingDamageApplied } from "../lib/damage-ledger.js";
+import { applyDamageToActor, applyHealingToActor, getDamagePreview } from "../lib/damage.js";
+import { adjustPendingDamageForSave, markPendingDamageApplied } from "../lib/damage-ledger.js";
 import { renderSavesHtml } from "../lib/saves.js";
 import { runAction, getChoiceModeRollParts } from "../workflow/execute.js";
 import { getItemUses, consumeItemUse } from "../lib/uses.js";
@@ -70,11 +70,16 @@ async function applyDamage(btn, message, data) {
 
     // Preview simple + selector si varios
     const previews = resolved.map((r) => {
-      const lines = damages.map((dmg) => {
-        const { multiplier, label } = getDamageModifiers(r.tActor, dmg.type, { homebrew: isHomebrew, attackTags });
+      const lines = damages.map((dmg, index) => {
         const original = safeNum(dmg.amount, 0);
-        const applied = Math.floor(original * multiplier);
-        return { type: dmg.type, original, applied, multiplier, label };
+        const preview = getDamagePreview(r.tActor, original, dmg.type, { homebrew: isHomebrew, attackTags, disableDefense: index > 0 });
+        return {
+          type: dmg.type,
+          original,
+          applied: safeNum(preview.applied, 0),
+          multiplier: safeNum(preview.multiplier, 1),
+          label: preview.modifier || preview.label || null
+        };
       });
       const totalOriginal = lines.reduce((a, l) => a + l.original, 0);
       const totalApplied = lines.reduce((a, l) => a + l.applied, 0);
@@ -85,8 +90,8 @@ async function applyDamage(btn, message, data) {
     const applyToOne = async (entry) => {
       let totalForActor = 0, actDetails = [];
       const originalAmount = damages.reduce((sum, dmg) => sum + safeNum(dmg.amount, 0), 0);
-      for (let dmg of damages) {
-        const res = await applyDamageToActor(entry.tActor, dmg.amount, dmg.type, { homebrew: isHomebrew, attackTags });
+      for (const [index, dmg] of damages.entries()) {
+        const res = await applyDamageToActor(entry.tActor, dmg.amount, dmg.type, { homebrew: isHomebrew, attackTags, disableDefense: index > 0 });
         totalForActor += res.applied;
         actDetails.push(`${safeNum(dmg.amount, 0)}→${res.applied} ${dmg.type}${res.modified ? ` (${escapeHtml(res.modifier || "")})` : ""}`);
       }
@@ -113,7 +118,7 @@ async function applyDamage(btn, message, data) {
     const content = `
       <div style="font-family:Roboto,sans-serif;">
         <div style="color:#bbb; font-size:12px; margin-bottom:8px;">
-          ${isHomebrew ? "🛡️ Homebrew: Resistencias 67%. Respeta bypasses." : "✨ Normal: Resistencias 50%. Respeta bypasses."}
+          ${isHomebrew ? "🛡️ Homebrew: defensa por CA y RIV 33%. Respeta bypasses." : "✨ Normal: RIV 33%. Respeta bypasses."}
         </div>
         <hr style="border:0;border-top:1px solid #333;margin:10px 0;">
         ${previews.map((p) => `
@@ -266,9 +271,9 @@ async function applyFailedSaveConsequences({ message, data, target } = {}) {
       const attackTags = Array.isArray(data?.attackTags) ? data.attackTags : [];
       let totalApplied = 0;
       const details = [];
-      for (const dmg of damages) {
+      for (const [index, dmg] of damages.entries()) {
         try {
-          const res = await applyDamageToActor(target.actor, dmg.amount, dmg.type, { homebrew: isHomebrew, attackTags });
+          const res = await applyDamageToActor(target.actor, dmg.amount, dmg.type, { homebrew: isHomebrew, attackTags, disableDefense: index > 0 });
           const applied = safeNum(res?.applied, 0);
           totalApplied += applied;
           details.push(`${safeNum(dmg.amount, 0)}→${applied} ${dmg.type}`);
@@ -408,6 +413,17 @@ async function handleSaveRoll(btn, message, data, ev) {
       const success = hasDC ? safeNum(total, 0) >= dcVal : null;
 
       game.socket?.emit?.(SOCKET_NS, { type: "saveDone", originMessageId: message.id, saveKey, actorUuid: t.actorUuid, userId: game.user.id, total: total ?? null, success });
+
+      const saveSuccessDamageMode = String(data?.saveSuccessDamageMode || "none");
+      if (success !== null && saveSuccessDamageMode === "half") {
+        await adjustPendingDamageForSave({
+          messageId: message.id,
+          actorUuid: t.actorUuid,
+          tokenUuid: t.tokenUuid,
+          scale: success ? 0.5 : 1,
+          reason: success ? "Salvación superada: medio daño" : "Salvación fallida: daño completo"
+        });
+      }
 
       const autoResult = success === false ? await applyFailedSaveConsequences({ message, data, target: t }) : { notices: [], damageApplied: false };
       if (autoResult?.damageApplied) {
@@ -549,6 +565,7 @@ async function handleChoiceMode(btn, message, data) {
       applySneak: false,
       applySavage: false,
       applyWails: false,
+      applyHex: false,
       applyExtraDice: false,
       extraDiceFormula: "",
       extraDiceLabel: "",

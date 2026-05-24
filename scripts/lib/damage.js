@@ -1,5 +1,5 @@
 import { gp, safeNum, sanitizeFormula, sanitizeFormulaLoose } from "./utils.js";
-import { getActorHpData, updateActorHpData, getActorTraits, getActorClasses, getActorLevel, getActorChallenge } from "../shared/system-data.js";
+import { getActorHpData, updateActorHpData, getActorTraits, getActorClasses, getActorLevel, getActorChallenge, getActorAcValue } from "../shared/system-data.js";
 import { getActivities, normalizeDamageType } from "./actor.js";
 import { toSet, firstIntersection, bypassLabel, getTraitBypasses, traitHasType, BYPASS_CANON } from "./riv.js";
 
@@ -547,24 +547,50 @@ export function getDamageModifiers(targetActor, damageType, { homebrew = false, 
   if (traitHasType(drSet, damageType)) {
     const hit = firstIntersection(atk, drBy);
     if (hit) return { multiplier: 1, label: `Ignora resistencia (${bypassLabel(hit)})` };
-    return { multiplier: homebrew ? 0.67 : 0.5, label: homebrew ? "Resistente (HB 67%)" : "Resistente" };
+    return { multiplier: 0.67, label: "Resistente (-33%)" };
   }
 
   if (traitHasType(dvSet, damageType)) {
     const hit = firstIntersection(atk, dvBy);
     if (hit) return { multiplier: 1, label: `Ignora vulnerabilidad (${bypassLabel(hit)})` };
-    return { multiplier: 2, label: "Vulnerable" };
+    return { multiplier: 1.33, label: "Vulnerable (+33%)" };
   }
 
   return { multiplier: 1, label: null };
 }
 
-export async function applyDamageToActor(targetActor, amount, damageType = "bludgeoning", { homebrew = false, attackTags = [] } = {}) {
+export function getDamagePreview(targetActor, amount, damageType = "bludgeoning", { homebrew = false, attackTags = [], disableDefense = false } = {}) {
+  amount = Math.max(0, safeNum(amount, 0));
+  if (!amount) return { applied: 0, modified: false, original: 0, defended: 0, defense: 0, multiplier: 1, type: damageType, modifier: null };
+
+  const defense = (homebrew && !disableDefense)
+    ? Math.max(0, safeNum(getActorAcValue(targetActor), 10) - 10)
+    : 0;
+  const defended = Math.max(0, Math.floor(amount - defense));
+  const { multiplier, label } = getDamageModifiers(targetActor, damageType, { homebrew, attackTags });
+  const applied = Math.floor(defended * multiplier);
+  const details = [];
+  if (defense > 0) details.push(`Defensa CA-10: -${defense}`);
+  if (label) details.push(label);
+
+  return {
+    applied,
+    modified: defense > 0 || multiplier !== 1 || !!label,
+    modifier: details.join(" · ") || null,
+    original: amount,
+    defended,
+    defense,
+    multiplier,
+    type: damageType
+  };
+}
+
+export async function applyDamageToActor(targetActor, amount, damageType = "bludgeoning", { homebrew = false, attackTags = [], disableDefense = false } = {}) {
   amount = Math.max(0, safeNum(amount, 0));
   if (!amount) return { applied: 0, modified: false, original: 0, type: damageType };
 
-  const { multiplier, label } = getDamageModifiers(targetActor, damageType, { homebrew, attackTags });
-  const modifiedAmount = Math.floor(amount * multiplier);
+  const preview = getDamagePreview(targetActor, amount, damageType, { homebrew, attackTags, disableDefense });
+  const modifiedAmount = preview.applied;
 
   const hp = getActorHpData(targetActor);
   let temp = safeNum(hp.temp, 0), value = safeNum(hp.value, 0), remaining = modifiedAmount;
@@ -578,7 +604,7 @@ export async function applyDamageToActor(targetActor, amount, damageType = "blud
 
   await updateActorHpData(targetActor, { temp, value });
 
-  return { applied: modifiedAmount, modified: multiplier !== 1 || !!label, modifier: label, original: amount, type: damageType };
+  return { ...preview, applied: modifiedAmount, original: amount, type: damageType };
 }
 
 export async function applyHealingToActor(targetActor, amount, type = "healing", { applyCurrent = false } = {}) {

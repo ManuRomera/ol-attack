@@ -1,6 +1,6 @@
 import { SOCKET_NS, FLAG_SCOPE, FLAG_KEY } from "../shared/constants.js";
 import { updateSavesBlock } from "../chat/chat-handlers.js";
-import { addPendingDamageLines, markPendingDamageApplied } from "../lib/damage-ledger.js";
+import { addPendingDamageLines, adjustPendingDamageForSave, markPendingDamageApplied } from "../lib/damage-ledger.js";
 
 export function registerSocket() {
   if (game.olAttackSocketInit) return;
@@ -72,6 +72,12 @@ export function registerSocket() {
       if (payload.type === "damageLedgerApplied") {
         if (!game.user?.isGM) return;
         await markPendingDamageApplied(payload.payload || {}, { remote: true });
+        return;
+      }
+
+      if (payload.type === "damageLedgerAdjustSave") {
+        if (!game.user?.isGM) return;
+        await adjustPendingDamageForSave(payload.payload || {}, { remote: true });
         return;
       }
 

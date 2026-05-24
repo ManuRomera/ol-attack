@@ -32,6 +32,7 @@ export function getItemTags(item, activeFeatures = {}) {
   if (activeFeatures.savage) tags.push("⚔️ Salvaje");
   if (activeFeatures.offhand) tags.push("⚔️ Mano Débil");
   if (activeFeatures.wails) tags.push("👻 Lamentos");
+  if (activeFeatures.hex) tags.push("🧿 Maldición");
   if (activeFeatures.extraDice) tags.push("✨ Dados extra");
 
   if (activeFeatures.isHomebrew) tags.push("🛡️ Homebrew");

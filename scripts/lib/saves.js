@@ -18,6 +18,45 @@ async function resolveDCValue(dc, actor) {
   return { dcVal: null, dcText: s || "Auto" };
 }
 
+function textOnly(value) {
+  return String(value || "")
+    .replace(/<[^>]*>/g, " ")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function getSaveSuccessDamageMode(item) {
+  if (!item) return "none";
+
+  const actArray = getActivities(item);
+  for (const activity of actArray) {
+    const hay = textOnly([
+      gp(activity, "save.damage.onSave"),
+      gp(activity, "save.damage"),
+      gp(activity, "damage.onSave"),
+      gp(activity, "save.onSave"),
+      gp(activity, "save.result.success"),
+      gp(activity, "save.success")
+    ].filter((v) => v != null).join(" "));
+    if (/\b(half|mitad|medio)\b/.test(hay)) return "half";
+    if (/\b(none|ninguno|nada|sin dano|sin daño)\b/.test(hay)) return "none";
+  }
+
+  const description = textOnly([
+    gp(item, "system.description.value"),
+    gp(item, "system.description.chat")
+  ].join(" "));
+
+  if (!description) return "none";
+  if (/half as much damage|half damage|successful save[^.]{0,120}half|half[^.]{0,120}successful save/.test(description)) return "half";
+  if (/mitad (?:de )?(?:ese |del |el )?dan[oa]|dan[oa][^.]{0,120}mitad|salvacion[^.]{0,120}mitad|superar[^.]{0,120}mitad|exito[^.]{0,120}mitad/.test(description)) return "half";
+
+  return "none";
+}
+
 export async function getSavesFromItem(item, actor, { isHomebrew = false } = {}) {
   const saves = [];
   const actArray = getActivities(item);

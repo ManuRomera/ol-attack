@@ -37,6 +37,19 @@ function getState() {
   return state;
 }
 
+function emptyView() {
+  return {
+    active: false,
+    hasLines: false,
+    pendingCount: 0,
+    appliedCount: 0,
+    deletedCount: 0,
+    pendingTotal: 0,
+    canApply: false,
+    lines: []
+  };
+}
+
 async function saveState() {
   const st = getState();
   st.processedKeys = Array.from(new Set(st.processedKeys)).slice(-MAX_PROCESSED);
@@ -134,7 +147,7 @@ function recentEquivalentExists(candidate) {
 export function registerDamageLedger() {
   if (registered) return;
   registered = true;
-  getState();
+  if (game.user?.isGM) getState();
 }
 
 export async function addPendingDamageLines(payload = {}, { remote = false } = {}) {
@@ -150,8 +163,19 @@ export async function addPendingDamageLines(payload = {}, { remote = false } = {
 
   if (!cleanParts.length) return 0;
 
-  if (!remote && !game.user?.isGM) {
-    game.socket?.emit?.(SOCKET_NS, { type: "damageLedgerAdd", payload: clone({ ...payload, parts: cleanParts }) });
+  if (!game.user?.isGM) {
+    if (!remote) {
+      game.socket?.emit?.(SOCKET_NS, {
+        type: "damageLedgerAdd",
+        payload: clone({
+          ...payload,
+          parts: cleanParts,
+          sourceUserId: game.user?.id || null,
+          sourceUserName: game.user?.name || null
+        })
+      });
+    }
+    return 0;
   }
 
   const st = getState();
@@ -224,8 +248,18 @@ function findBestPendingLine({ actorUuid = null, tokenUuid = null, amount = 0 } 
 }
 
 export async function markPendingDamageApplied(payload = {}, { remote = false } = {}) {
-  if (!remote && !game.user?.isGM) {
-    game.socket?.emit?.(SOCKET_NS, { type: "damageLedgerApplied", payload: clone(payload) });
+  if (!game.user?.isGM) {
+    if (!remote) {
+      game.socket?.emit?.(SOCKET_NS, {
+        type: "damageLedgerApplied",
+        payload: clone({
+          ...payload,
+          sourceUserId: game.user?.id || null,
+          sourceUserName: game.user?.name || null
+        })
+      });
+    }
+    return false;
   }
 
   const actorUuid = payload.actorUuid || payload.targetActor?.uuid || null;
@@ -247,6 +281,8 @@ export async function markPendingDamageApplied(payload = {}, { remote = false } 
 }
 
 export function getDamageLedgerView() {
+  if (!game.user?.isGM) return emptyView();
+
   const st = getState();
   const lines = st.lines || [];
   const pending = lines.filter((line) => !line.deleted && line.status !== "applied");
@@ -281,6 +317,8 @@ export function getDamageLedgerView() {
 }
 
 export async function toggleDamageLedgerActive() {
+  if (!game.user?.isGM) return false;
+
   const st = getState();
   st.active = !st.active;
   await saveState();
@@ -289,6 +327,8 @@ export async function toggleDamageLedgerActive() {
 }
 
 export async function deleteDamageLedgerLine(lineId) {
+  if (!game.user?.isGM) return;
+
   const st = getState();
   const index = st.lines.findIndex((entry) => entry.id === lineId);
   if (index < 0) return;
@@ -302,6 +342,8 @@ export async function deleteDamageLedgerLine(lineId) {
 }
 
 export async function restoreDamageLedgerLine(lineId) {
+  if (!game.user?.isGM) return;
+
   const line = getState().lines.find((entry) => entry.id === lineId);
   if (!line) return;
   line.deleted = false;
@@ -311,6 +353,8 @@ export async function restoreDamageLedgerLine(lineId) {
 }
 
 export async function undoDamageLedgerDelete() {
+  if (!game.user?.isGM) return false;
+
   const st = getState();
   while (st.deletedStack.length) {
     const entry = st.deletedStack.pop();
@@ -338,6 +382,8 @@ export async function undoDamageLedgerDelete() {
 }
 
 export async function clearDamageLedgerApplied() {
+  if (!game.user?.isGM) return;
+
   const st = getState();
   st.lines = st.lines.filter((line) => line.status !== "applied" && !line.deleted);
   st.deletedStack = [];
@@ -346,6 +392,8 @@ export async function clearDamageLedgerApplied() {
 }
 
 export async function clearDamageLedgerAll() {
+  if (!game.user?.isGM) return;
+
   const st = getState();
   st.lines = [];
   st.deletedStack = [];
@@ -377,6 +425,8 @@ async function consumeDamageLedgerLine(lineId) {
 }
 
 export async function applyDamageLedgerLine(lineId) {
+  if (!game.user?.isGM) throw new Error("Solo el GM puede aplicar el daño pendiente.");
+
   const line = getState().lines.find((entry) => entry.id === lineId);
   if (!line || line.deleted || line.status === "applied") return null;
 
@@ -421,6 +471,8 @@ export async function applyDamageLedgerLine(lineId) {
 }
 
 export async function applyAllPendingDamageLedger() {
+  if (!game.user?.isGM) return [];
+
   const pending = getState().lines.filter((line) => !line.deleted && line.status !== "applied");
   const results = [];
   for (const line of pending) {

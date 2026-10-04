@@ -19,8 +19,11 @@ https://github.com/ManuRomera/ol-attack/releases/latest/download/module.json
 ```
 
 ## Notas
-- Las preferencias se guardan en *flags del Actor* (visibilidad, offhand, autoclose, prefs por ítem).
-- El estado de ventana (posición/tamaño/pestaña/último ítem) se guarda por usuario (setting client).
+- Las preferencias se guardan en *flags del Actor* bajo `flags.ol-attack` (visibilidad, offhand, autoclose, prefs por ítem).
+- La posición, tamaño y secciones plegadas de cada ventana se guardan por usuario y mundo en el navegador (localStorage).
+- Todas las ventanas llevan un icono de accesibilidad junto al de cerrar (tamaño de texto, contraste, fuente legible, sin movimiento, ayuda inmediata).
+- Enter (con el foco en la ventana) tira; Mayús+Enter ventaja; Alt+Enter desventaja. Flechas ↑↓ recorren la lista.
+- Compatible con Foundry 13 (verificado 13.351) y dnd5e 5.3. Auditoría completa en `docs/AUDITORIA.md`.
 - Las TS jugador-a-jugador usan socket `module.ol-attack`:
   - Jugador tira solo para sus actores (dueño).
   - GM tira por defecto solo PNJ (si hay PJ, cada jugador tira la suya).

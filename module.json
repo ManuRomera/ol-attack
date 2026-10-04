@@ -1,8 +1,8 @@
 {
   "id": "ol-attack",
   "title": "OL Attack UI (D&D5e v13)",
-  "description": "UI de ataque/daño/rasgos con tarjetas de chat, aplicación de daño/curación, descansos, iniciativa, TS jugador-a-jugador, monitor de escena y perfiles configurables. Añade JSON avanzado importable/exportable para definir el comportamiento de hechizos y rasgos, incluyendo workflows con varias tiradas separadas, elecciones y estados.",
-  "version": "0.1.86",
+  "description": "Ventana de ataque, daño y rasgos para D&D5e con tarjetas de chat, aplicación de daño y curación, descansos, iniciativa, salvaciones jugador a jugador, monitor de escena y perfiles de acción configurables (JSON importable/exportable con workflows de varias tiradas, elecciones y estados). Interfaz compacta, accesible y con memoria de ventana.",
+  "version": "0.2.0",
   "authors": [
     {
       "name": "Manu Romera",
@@ -30,7 +30,7 @@
   ],
   "compatibility": {
     "minimum": "13",
-    "verified": "13"
+    "verified": "13.351"
   },
   "relationships": {
     "systems": [

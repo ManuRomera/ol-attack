@@ -1,301 +1,103 @@
 <div class="ol-root ol-scene-root {{#if isCombatMode}}{{#if isCombatVertical}}mode-combat-vertical{{else}}mode-combat-horizontal{{/if}}{{else}}mode-overview{{/if}}">
-  <button type="button" class="ol-scene-close-btn" data-action="close-monitor" title="Cerrar monitor">✕</button>
-  <div class="ol-header ol-scene-header ultra-compact">
-    <div class="ol-scene-heading-block">
-      <div class="ol-scene-heading-main">
-        <h1>Monitor de escena</h1>
-        <div class="ol-scene-scene-name" title="{{sceneName}}">{{sceneName}}</div>
-      </div>
-      <div class="ol-scene-summary-line" title="Resumen de la escena y del combate actual">
-        <span class="ol-chip"><span>Vista</span><b>{{visibleSummary}}</b></span>
-        <span class="ol-chip"><span>Combate</span><b>{{combatSummary}}</b></span>
-        {{#if gmHandledName}}<span class="ol-chip"><span>GM</span><b>{{gmHandledName}}</b></span>{{/if}}
-        {{#if isCombatMode}}
-          {{#if combatMeta.hasCombat}}
-            {{#if combatMeta.combatStarted}}<span class="ol-chip active-turn-chip"><span>Ronda</span><b>{{combatMeta.combatRound}}</b></span>{{/if}}
-            {{#if combatMeta.activeName}}<span class="ol-chip active-turn-chip"><span>Turno</span><b>{{combatMeta.activeName}}</b></span>{{/if}}
-          {{/if}}
-        {{/if}}
-      </div>
+  <header class="ol-scene-header">
+    <div class="ol-scene-heading" data-tooltip="{{localize 'OLATTACK.Scene.CardHintGM'}}">
+      <h1>{{localize "OLATTACK.Scene.Title"}}</h1>
+      <span class="ol-scene-scene-name" data-tooltip="{{sceneName}}">{{sceneName}}</span>
     </div>
 
-    <div class="ol-scene-toolbar compact-toolbar">
-      <div class="ol-mode-switch compact-switch" role="tablist" aria-label="Modo del monitor">
-        {{#each modeButtons}}
-          <button type="button" class="ol-mini-tool ol-mode-btn compact {{#if active}}is-active{{/if}}" data-action="set-mode" data-mode="{{value}}" title="{{title}}">{{label}}</button>
-        {{/each}}
-      </div>
-      <div class="ol-scene-toolbar-actions">
-        <button type="button" class="ol-mini-tool icon-only" data-action="open-config" title="Configurar monitor de escena">⚙</button>
-        <button type="button" class="ol-mini-tool icon-only" data-action="refresh" title="Actualizar">↻</button>
-      </div>
-    </div>
-  </div>
-
-  <section class="ol-card ol-damage-ledger compact {{#unless damageLedger.active}}is-paused{{/unless}}">
-    <div class="ol-damage-ledger-head">
-      <div class="ol-damage-ledger-title">
-        <strong>Daño pendiente</strong>
-        <span>{{#if damageLedger.active}}ON{{else}}Pausado{{/if}}</span>
-      </div>
-      <div class="ol-damage-ledger-summary">
-        <span class="ol-chip {{#if damageLedger.pendingCount}}depleted{{/if}}"><span>Pend.</span><b>{{damageLedger.pendingCount}}</b></span>
-        <span class="ol-chip damage-total"><span>Daño</span><b>{{damageLedger.pendingTotal}}</b></span>
-        <span class="ol-chip"><span>Aplic.</span><b>{{damageLedger.appliedCount}}</b></span>
-        <span class="ol-chip"><span>Borr.</span><b>{{damageLedger.deletedCount}}</b></span>
-      </div>
-      <div class="ol-damage-ledger-actions">
-        <button type="button" class="ol-mini-tool" data-action="toggle-damage-ledger" title="Activar o pausar el registro de daño">{{#if damageLedger.active}}Pausar{{else}}Activar{{/if}}</button>
-        <button type="button" class="ol-mini-tool primary" data-action="apply-damage-ledger-all" {{#unless damageLedger.canApply}}disabled{{/unless}} title="Aplicar todo el daño pendiente">Aplicar {{damageLedger.pendingTotal}}</button>
-        <button type="button" class="ol-mini-tool icon-only" data-action="undo-damage-ledger-delete" title="Deshacer último borrado">↩</button>
-        <button type="button" class="ol-mini-tool" data-action="clear-damage-ledger-applied" title="Limpiar daño ya aplicado">Limpiar</button>
-        <button type="button" class="ol-mini-tool danger" data-action="clear-damage-ledger-all" title="Vaciar todo el historial">Vaciar</button>
-      </div>
+    <div class="ol-scene-summary">
+      <span class="ol-chip"><span>{{localize "OLATTACK.Scene.View"}}</span> <b>{{visibleSummary}}</b></span>
+      {{#if isCombatMode}}
+        <span class="ol-chip"><span>{{localize "OLATTACK.Scene.Combat"}}</span> <b>{{combatSummary}}</b></span>
+        {{#if combatMeta.combatStarted}}<span class="ol-chip is-hot"><span>{{localize "OLATTACK.Scene.Round"}}</span> <b>{{combatMeta.combatRound}}</b></span>{{/if}}
+        {{#if combatMeta.activeName}}<span class="ol-chip is-hot"><span>{{localize "OLATTACK.Scene.Turn"}}</span> <b>{{combatMeta.activeName}}</b></span>{{/if}}
+      {{/if}}
+      {{#if gmHandledName}}<span class="ol-chip"><span>GM</span> <b>{{gmHandledName}}</b></span>{{/if}}
     </div>
 
-    <div class="ol-damage-ledger-list">
+    <div class="ol-scene-toolbar">
+      <div class="ol-segment" role="tablist" aria-label="{{localize 'OLATTACK.Scene.Mode'}}">
+        {{#each modeButtons}}<button type="button" role="tab" class="ol-seg-btn {{#if active}}is-active{{/if}}" data-action="set-mode" data-mode="{{value}}" aria-selected="{{#if active}}true{{else}}false{{/if}}" data-tooltip="{{title}}">{{label}}</button>{{/each}}
+      </div>
+      <button type="button" class="ol-icon-btn" data-action="open-config" data-tooltip="{{localize 'OLATTACK.Scene.Configure'}}" aria-label="{{localize 'OLATTACK.Scene.Configure'}}"><i class="fa-solid fa-gear"></i></button>
+      <button type="button" class="ol-icon-btn" data-action="refresh" data-tooltip="{{localize 'OLATTACK.Scene.Refresh'}}" aria-label="{{localize 'OLATTACK.Scene.Refresh'}}"><i class="fa-solid fa-rotate"></i></button>
+    </div>
+  </header>
+
+  <details class="ol-ledger {{#unless damageLedger.active}}is-paused{{/unless}}" data-memoria="ledger" {{#if (lookup open "ledger")}}open{{/if}}>
+    <summary>
+      <span class="ol-ledger-title"><i class="fa-solid fa-burst"></i> {{localize "OLATTACK.Ledger.Title"}}</span>
+      <span class="ol-ledger-state">{{#if damageLedger.active}}{{localize "OLATTACK.Ledger.On"}}{{else}}{{localize "OLATTACK.Ledger.Paused"}}{{/if}}</span>
+      <span class="ol-chip {{#if damageLedger.pendingCount}}is-hot{{/if}}"><span>{{localize "OLATTACK.Ledger.Pending"}}</span> <b>{{damageLedger.pendingCount}}</b></span>
+      <span class="ol-chip damage-total"><span>{{localize "OLATTACK.Ledger.Damage"}}</span> <b>{{damageLedger.pendingTotal}}</b></span>
+      <button type="button" class="ol-btn-sm primary" data-action="apply-damage-ledger-all" {{#unless damageLedger.canApply}}disabled{{/unless}} data-tooltip="{{localize 'OLATTACK.Ledger.ApplyAllHint'}}"><i class="fa-solid fa-check-double"></i> {{localize "OLATTACK.Ledger.Apply"}} {{damageLedger.pendingTotal}}</button>
+    </summary>
+
+    <div class="ol-ledger-actions">
+      <button type="button" class="ol-btn-sm" data-action="toggle-damage-ledger" data-tooltip="{{localize 'OLATTACK.Ledger.ToggleHint'}}"><i class="fa-solid {{#if damageLedger.active}}fa-pause{{else}}fa-play{{/if}}"></i> {{#if damageLedger.active}}{{localize "OLATTACK.Ledger.Pause"}}{{else}}{{localize "OLATTACK.Ledger.Activate"}}{{/if}}</button>
+      <button type="button" class="ol-btn-sm" data-action="undo-damage-ledger-delete" data-tooltip="{{localize 'OLATTACK.Ledger.UndoHint'}}"><i class="fa-solid fa-rotate-left"></i> {{localize "OLATTACK.Ledger.Undo"}}</button>
+      <button type="button" class="ol-btn-sm" data-action="clear-damage-ledger-applied" data-tooltip="{{localize 'OLATTACK.Ledger.CleanHint'}}"><i class="fa-solid fa-broom"></i> {{localize "OLATTACK.Ledger.Clean"}} <span class="ol-count">{{damageLedger.appliedCount}}</span></button>
+      <button type="button" class="ol-btn-sm danger" data-action="clear-damage-ledger-all" data-tooltip="{{localize 'OLATTACK.Ledger.ClearHint'}}"><i class="fa-solid fa-trash"></i> {{localize "OLATTACK.Ledger.Clear"}}</button>
+    </div>
+
+    <div class="ol-ledger-list">
       {{#if damageLedger.hasLines}}
         {{#each damageLedger.lines}}
-          <div class="ol-damage-ledger-line {{statusClass}}">
-            <div class="ol-damage-ledger-amount" title="{{amount}} {{damageTypeLabel}}">
-              <b>{{amount}}</b>
-              <span>{{damageTypeLabel}}</span>
-            </div>
-            <div class="ol-damage-ledger-route">
-              <div class="ol-damage-ledger-names" title="{{sourceName}} → {{targetName}}">
-                <img src="{{sourceImg}}" alt="{{sourceName}}">
-                <span>{{sourceName}}</span>
-                <i>→</i>
-                <img src="{{targetImg}}" alt="{{targetName}}">
-                <strong>{{targetName}}</strong>
+          <div class="ol-ledger-line {{statusClass}}">
+            <div class="ol-ledger-amount" data-tooltip="{{amount}} {{damageTypeLabel}}"><b>{{amount}}</b><span>{{damageTypeLabel}}</span></div>
+            <div class="ol-ledger-route">
+              <div class="ol-ledger-names" data-tooltip="{{sourceName}} → {{targetName}}">
+                <img src="{{sourceImg}}" alt=""><span>{{sourceName}}</span><i class="fa-solid fa-arrow-right"></i><img src="{{targetImg}}" alt=""><strong>{{targetName}}</strong>
               </div>
-              <div class="ol-damage-ledger-detail" title="{{label}} {{formulaLabel}}">
-                <span>{{label}}</span>
-                {{#if formulaLabel}}<code>{{formulaLabel}}</code>{{/if}}
-              </div>
+              <div class="ol-ledger-detail" data-tooltip="{{label}} {{formulaLabel}}"><span>{{label}}</span>{{#if formulaLabel}}<code>{{formulaLabel}}</code>{{/if}}</div>
             </div>
-            <div class="ol-damage-ledger-state {{statusClass}}">{{statusText}}</div>
-            <div class="ol-damage-ledger-line-actions">
+            <div class="ol-ledger-status {{statusClass}}">{{statusText}}</div>
+            <div class="ol-ledger-line-actions">
               {{#if canRestore}}
-                <button type="button" class="ol-mini-tool icon-only" data-action="restore-damage-ledger-line" data-line-id="{{id}}" title="Restaurar">↩</button>
+                <button type="button" class="ol-icon-btn" data-action="restore-damage-ledger-line" data-line-id="{{id}}" data-tooltip="{{localize 'OLATTACK.Ledger.Restore'}}" aria-label="{{localize 'OLATTACK.Ledger.Restore'}}"><i class="fa-solid fa-rotate-left"></i></button>
               {{else}}
-                <button type="button" class="ol-mini-tool icon-only primary" data-action="apply-damage-ledger-line" data-line-id="{{id}}" title="Aplicar esta línea" {{#unless canApplyLine}}disabled{{/unless}}>✓</button>
-                <button type="button" class="ol-mini-tool icon-only danger" data-action="delete-damage-ledger-line" data-line-id="{{id}}" title="Borrar">×</button>
+                <button type="button" class="ol-icon-btn primary" data-action="apply-damage-ledger-line" data-line-id="{{id}}" data-tooltip="{{localize 'OLATTACK.Ledger.ApplyLine'}}" aria-label="{{localize 'OLATTACK.Ledger.ApplyLine'}}" {{#unless canApplyLine}}disabled{{/unless}}><i class="fa-solid fa-check"></i></button>
+                <button type="button" class="ol-icon-btn danger" data-action="delete-damage-ledger-line" data-line-id="{{id}}" data-tooltip="{{localize 'OLATTACK.Ledger.Delete'}}" aria-label="{{localize 'OLATTACK.Ledger.Delete'}}"><i class="fa-solid fa-xmark"></i></button>
               {{/if}}
             </div>
           </div>
         {{/each}}
       {{else}}
-        <div class="ol-damage-ledger-empty">Esperando daño de OL Attack.</div>
+        <p class="ol-empty">{{localize "OLATTACK.Ledger.Empty"}}</p>
       {{/if}}
     </div>
-  </section>
+  </details>
 
   {{#if hasScene}}
     {{#if isCombatMode}}
-      <div class="ol-card ol-scene-combat-toolbar-card compact ultra-compact {{#if isCombatVertical}}is-vertical{{else}}is-horizontal{{/if}}">
-        <div class="ol-scene-combat-inline compact-grid">
-          <div class="ol-scene-combat-toolbar compact compact-grid-buttons">
-            <button type="button" class="ol-mini-tool ol-scene-action-btn" data-action="configure-combat" title="Elegir participantes del combate">Participantes</button>
-            <button type="button" class="ol-mini-tool ol-scene-action-btn" data-action="start-combat" title="Crear o sincronizar el combate con la selección actual">Iniciar</button>
-            <button type="button" class="ol-mini-tool ol-scene-action-btn" data-action="end-combat" title="Finalizar y cerrar el combate activo de la escena">Finalizar</button>
-            <button type="button" class="ol-mini-tool ol-scene-action-btn" data-action="roll-init-all" title="Tirar iniciativa para todos los participantes seleccionados">Ini todos</button>
-            <button type="button" class="ol-mini-tool ol-scene-action-btn" data-action="roll-init-npc" title="Tirar iniciativa solo para PNJs seleccionados">Ini PNJs</button>
-            <button type="button" class="ol-mini-tool ol-scene-action-btn nav-btn" data-action="prev-turn" title="Volver al turno anterior">←</button>
-            <button type="button" class="ol-mini-tool ol-scene-action-btn nav-btn" data-action="next-turn" title="Pasar al siguiente turno">→</button>
-          </div>
-
-          <div class="ol-scene-combat-summary compact tight slim-chips">
-            <div class="ol-chip"><span>Conflicto</span> <b>{{combatMeta.selectedCount}}</b></div>
-            <div class="ol-chip"><span>Ini</span> <b>{{combatMeta.rolledCount}}</b></div>
-            <div class="ol-chip {{#if combatMeta.pendingCount}}depleted{{/if}}"><span>Pend.</span> <b>{{combatMeta.pendingCount}}</b></div>
-            <div class="ol-chip {{#if combatMeta.pendingPlayers}}depleted{{/if}}"><span>PJs</span> <b>{{combatMeta.pendingPlayers}}</b></div>
-            <div class="ol-chip {{#if combatMeta.pendingNpcs}}depleted{{/if}}"><span>PNJs</span> <b>{{combatMeta.pendingNpcs}}</b></div>
-          </div>
+      <div class="ol-scene-combatbar">
+        <div class="ol-btn-group">
+          <button type="button" class="ol-btn-sm" data-action="configure-combat" data-tooltip="{{localize 'OLATTACK.Scene.ParticipantsHint'}}"><i class="fa-solid fa-users"></i> {{localize "OLATTACK.Scene.Participants"}}</button>
+          <button type="button" class="ol-btn-sm primary" data-action="start-combat" data-tooltip="{{localize 'OLATTACK.Scene.StartHint'}}"><i class="fa-solid fa-play"></i> {{localize "OLATTACK.Scene.Start"}}</button>
+          <button type="button" class="ol-btn-sm danger" data-action="end-combat" data-tooltip="{{localize 'OLATTACK.Scene.EndHint'}}"><i class="fa-solid fa-stop"></i> {{localize "OLATTACK.Scene.End"}}</button>
+        </div>
+        <div class="ol-btn-group">
+          <button type="button" class="ol-btn-sm" data-action="roll-init-all" data-tooltip="{{localize 'OLATTACK.Scene.InitAllHint'}}"><i class="fa-solid fa-dice-d20"></i> {{localize "OLATTACK.Scene.InitAll"}}</button>
+          <button type="button" class="ol-btn-sm" data-action="roll-init-npc" data-tooltip="{{localize 'OLATTACK.Scene.InitNpcHint'}}"><i class="fa-solid fa-dice-d20"></i> {{localize "OLATTACK.Scene.InitNpc"}}</button>
+          <button type="button" class="ol-icon-btn" data-action="prev-turn" data-tooltip="{{localize 'OLATTACK.Scene.PrevTurn'}}" aria-label="{{localize 'OLATTACK.Scene.PrevTurn'}}"><i class="fa-solid fa-chevron-left"></i></button>
+          <button type="button" class="ol-icon-btn primary" data-action="next-turn" data-tooltip="{{localize 'OLATTACK.Scene.NextTurn'}}" aria-label="{{localize 'OLATTACK.Scene.NextTurn'}}"><i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+        <div class="ol-scene-meta">
+          <span class="ol-chip"><span>{{localize "OLATTACK.Scene.Conflict"}}</span> <b>{{combatMeta.selectedCount}}</b></span>
+          <span class="ol-chip"><span>Ini</span> <b>{{combatMeta.rolledCount}}</b></span>
+          {{#if combatMeta.pendingCount}}<span class="ol-chip is-hot"><span>{{localize "OLATTACK.Ledger.Pending"}}</span> <b>{{combatMeta.pendingCount}}</b></span>{{/if}}
         </div>
       </div>
-      <div class="ol-scene-carousel {{#if isCombatVertical}}is-vertical{{else}}is-horizontal{{/if}}" title="Carrusel de combate: el turno activo aparece primero. La orientación se cambia desde Configurar monitor de escena.">
-        {{#each rows}}
-          <section class="ol-card ol-scene-card ol-scene-card-combat {{#if isPC}}is-pc{{/if}} {{#if hidden}}is-hidden{{/if}} {{#if isActiveTurn}}is-active-turn{{/if}} {{#if isGmHandled}}is-gm-handled{{/if}} {{#if isTargetedByUser}}is-targeted-by-user{{/if}} {{#if hasPortraitBackground}}has-bg-portrait{{/if}}" style="{{cardStyle}}" data-token-id="{{tokenId}}" title="Click: centrar token · Doble click: abrir macro · Botón derecho: opciones rápidas">
-            {{#if hasPortraitBackground}}<div class="ol-scene-bg-media" aria-hidden="true">{{#if bgMediaIsVideo}}<video src="{{bgMedia}}" autoplay muted loop playsinline></video>{{else}}<img src="{{bgMedia}}" alt="">{{/if}}</div>{{/if}}
-            {{#if isTargetedByUser}}<div class="ol-scene-target-overlay" aria-hidden="true"></div>{{/if}}
-            <div class="ol-scene-main">
-              {{#if showAvatar}}<img class="ol-scene-avatar" src="{{img}}" alt="{{tokenName}}">{{/if}}
-              <div class="ol-scene-ident">
-                <div class="ol-scene-titleline combat-tight">
-                  <div class="ol-scene-titlegroup">
-                    <div class="ol-scene-name">{{tokenName}}</div>
-                    <div class="ol-scene-subline">
-                      <div class="ol-scene-sub">{{#if isPC}}PJ{{else}}PNJ{{/if}}{{#if hidden}} · Oculto{{/if}}{{#if isGmHandled}} · Manejando{{/if}}</div>
-                      {{#if quickTraits.length}}
-                      <div class="ol-scene-quicktags inline compact">
-                        {{#each quickTraits}}
-                          <span class="ol-scene-quicktag tone-{{tone}}" title="{{hint}}">{{shortLabel}}</span>
-                        {{/each}}
-                      </div>
-                      {{/if}}
-                    </div>
-                  </div>
-                  <div class="ol-scene-combat-meta compact-row">
-                    <div class="ol-init-badge {{#unless hasInitiative}}is-pending{{/unless}}">{{#if hasInitiative}}Ini {{initiative}}{{else}}Ini —{{/if}}</div>
-                    {{#if turnIndex}}<div class="ol-turn-badge">Turno {{turnIndex}}</div>{{/if}}
-                    <button type="button" class="ol-mini-tool ol-init-roll-btn" data-action="roll-init-one" data-token-id="{{tokenId}}" title="Tirar iniciativa para esta ficha">Ini</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="ol-scene-hp-stack">
-              <div class="ol-hpbar ol-hpbar-main ol-hp-editable" data-hp-token-id="{{tokenId}}" title="Doble click para editar PG">
-                <div class="ol-hpbar-fill" style="{{hp.fillStyle}}"></div>
-                <div class="ol-hpbar-text">PG {{hp.value}} / {{hp.max}}</div>
-              </div>
-              <div class="ol-hpbar ol-hpbar-temp {{#if hp.tempActive}}has-temp{{/if}}">
-                <div class="ol-hpbar-fill" style="{{hp.tempFillStyle}}"></div>
-                <div class="ol-hpbar-text">Temp {{hp.temp}}</div>
-              </div>
-            </div>
-
-            {{#if death.visible}}
-              <div class="ol-scene-block ol-deathsave-block">
-                <div class="ol-section-label">TS de muerte</div>
-                <div class="ol-deathsave-row" title="Éxitos {{death.successes}}/3 · Fallos {{death.failures}}/3">
-                  <div class="ol-deathsave-track successes">
-                    {{#each death.successDots}}
-                      <span class="ol-death-dot success {{#if filled}}filled{{/if}}" title="Éxito {{idx}}"></span>
-                    {{/each}}
-                  </div>
-                  <div class="ol-deathsave-state">{{death.stateLabel}}</div>
-                  <div class="ol-deathsave-track failures">
-                    {{#each death.failureDots}}
-                      <span class="ol-death-dot failure {{#if filled}}filled{{/if}}" title="Fallo {{idx}}"></span>
-                    {{/each}}
-                  </div>
-                </div>
-              </div>
-            {{/if}}
-
-            <div class="ol-scene-block">
-              <div class="ol-section-label">Usos limitados</div>
-              <div class="ol-res-chips">
-                {{#if resources.length}}
-                  {{#each resources}}
-                    <div class="ol-chip ol-scene-chip {{#if depleted}}depleted{{/if}}" title="{{name}}">
-                      <span>{{shortName}}</span>
-                      <b>{{remaining}}</b>/<span>{{max}}</span>
-                    </div>
-                  {{/each}}
-                {{else}}
-                  <div class="ol-chip muted">Sin recursos con usos</div>
-                {{/if}}
-              </div>
-            </div>
-
-            <div class="ol-scene-block">
-              <div class="ol-section-label">Estados</div>
-              <div class="ol-scene-statuses">
-                {{#if statuses.length}}
-                  {{#each statuses}}
-                    <div class="ol-scene-status" title="{{label}}">
-                      <img src="{{icon}}" alt="{{label}}">
-                      <span>{{label}}</span>
-                    </div>
-                  {{/each}}
-                {{else}}
-                  <div class="ol-chip muted">Sin estados</div>
-                {{/if}}
-              </div>
-            </div>
-          </section>
-        {{/each}}
-      </div>
-    {{else}}
-      <div class="ol-scene-grid">
-        {{#each rows}}
-          <section class="ol-card ol-scene-card {{#if isPC}}is-pc{{/if}} {{#if hidden}}is-hidden{{/if}} {{#if isGmHandled}}is-gm-handled{{/if}} {{#if isTargetedByUser}}is-targeted-by-user{{/if}} {{#if hasPortraitBackground}}has-bg-portrait{{/if}}" style="{{cardStyle}}" data-token-id="{{tokenId}}" title="Click: centrar token · Doble click: abrir macro · Botón derecho: opciones rápidas">
-            {{#if hasPortraitBackground}}<div class="ol-scene-bg-media" aria-hidden="true">{{#if bgMediaIsVideo}}<video src="{{bgMedia}}" autoplay muted loop playsinline></video>{{else}}<img src="{{bgMedia}}" alt="">{{/if}}</div>{{/if}}
-            {{#if isTargetedByUser}}<div class="ol-scene-target-overlay" aria-hidden="true"></div>{{/if}}
-            <div class="ol-scene-main">
-              <img class="ol-scene-avatar" src="{{img}}" alt="{{tokenName}}">
-              <div class="ol-scene-ident">
-                <div class="ol-scene-name">{{tokenName}}</div>
-                <div class="ol-scene-sub">{{#if isPC}}PJ{{else}}PNJ{{/if}}{{#if hidden}} · Oculto{{/if}}{{#if isGmHandled}} · Manejando{{/if}}</div>
-                {{#if quickTraits.length}}
-                <div class="ol-scene-quicktags compact">
-                  {{#each quickTraits}}
-                    <span class="ol-scene-quicktag tone-{{tone}}" title="{{hint}}">{{shortLabel}}</span>
-                  {{/each}}
-                </div>
-                {{/if}}
-              </div>
-            </div>
-
-            <div class="ol-scene-hp-stack">
-              <div class="ol-hpbar ol-hpbar-main ol-hp-editable" data-hp-token-id="{{tokenId}}" title="Doble click para editar PG">
-                <div class="ol-hpbar-fill" style="{{hp.fillStyle}}"></div>
-                <div class="ol-hpbar-text">PG {{hp.value}} / {{hp.max}}</div>
-              </div>
-              <div class="ol-hpbar ol-hpbar-temp {{#if hp.tempActive}}has-temp{{/if}}">
-                <div class="ol-hpbar-fill" style="{{hp.tempFillStyle}}"></div>
-                <div class="ol-hpbar-text">Temp {{hp.temp}}</div>
-              </div>
-            </div>
-
-            {{#if death.visible}}
-              <div class="ol-scene-block ol-deathsave-block">
-                <div class="ol-section-label">TS de muerte</div>
-                <div class="ol-deathsave-row" title="Éxitos {{death.successes}}/3 · Fallos {{death.failures}}/3">
-                  <div class="ol-deathsave-track successes">
-                    {{#each death.successDots}}
-                      <span class="ol-death-dot success {{#if filled}}filled{{/if}}" title="Éxito {{idx}}"></span>
-                    {{/each}}
-                  </div>
-                  <div class="ol-deathsave-state">{{death.stateLabel}}</div>
-                  <div class="ol-deathsave-track failures">
-                    {{#each death.failureDots}}
-                      <span class="ol-death-dot failure {{#if filled}}filled{{/if}}" title="Fallo {{idx}}"></span>
-                    {{/each}}
-                  </div>
-                </div>
-              </div>
-            {{/if}}
-
-            <div class="ol-scene-block">
-              <div class="ol-section-label">Usos limitados</div>
-              <div class="ol-res-chips">
-                {{#if resources.length}}
-                  {{#each resources}}
-                    <div class="ol-chip ol-scene-chip {{#if depleted}}depleted{{/if}}" title="{{name}}">
-                      <span>{{shortName}}</span>
-                      <b>{{remaining}}</b>/<span>{{max}}</span>
-                    </div>
-                  {{/each}}
-                {{else}}
-                  <div class="ol-chip muted">Sin recursos con usos</div>
-                {{/if}}
-              </div>
-            </div>
-
-            <div class="ol-scene-block">
-              <div class="ol-section-label">Estados</div>
-              <div class="ol-scene-statuses">
-                {{#if statuses.length}}
-                  {{#each statuses}}
-                    <div class="ol-scene-status" title="{{label}}">
-                      <img src="{{icon}}" alt="{{label}}">
-                      <span>{{label}}</span>
-                    </div>
-                  {{/each}}
-                {{else}}
-                  <div class="ol-chip muted">Sin estados</div>
-                {{/if}}
-              </div>
-            </div>
-          </section>
-        {{/each}}
-      </div>
     {{/if}}
+
+    <div class="ol-scene-grid {{#if isCombatMode}}ol-scene-carousel {{#if isCombatVertical}}is-vertical{{else}}is-horizontal{{/if}}{{/if}}">
+      {{#each rows}}
+        {{> "modules/ol-attack/templates/partials/scene-card.hbs" this combat=@root.isCombatMode gm=true}}
+      {{else}}
+        <p class="ol-empty">{{localize "OLATTACK.Scene.NoTokens"}}</p>
+      {{/each}}
+    </div>
   {{else}}
-    <div class="ol-card" style="padding:16px;">No hay escena activa.</div>
+    <p class="ol-empty">{{localize "OLATTACK.Scene.NoScene"}}</p>
   {{/if}}
 </div>

@@ -1,4 +1,5 @@
-import { SOCKET_NS, FLAG_SCOPE, FLAG_KEY } from "../shared/constants.js";
+import { SOCKET_NS } from "../shared/constants.js";
+import { datosTarjeta, guardarTarjeta } from "../lib/flags.js";
 import { updateSavesBlock } from "../chat/chat-handlers.js";
 import { addPendingDamageLines, adjustPendingDamageForSave, markPendingDamageApplied } from "../lib/damage-ledger.js";
 
@@ -91,13 +92,13 @@ export function registerSocket() {
       const msg = game.messages.get(originMessageId);
       if (!msg) return;
 
-      const data = msg.getFlag(FLAG_SCOPE, FLAG_KEY) || {};
+      const data = foundry.utils.deepClone(datosTarjeta(msg));
       const saveTrack = data.saveTrack || {};
       saveTrack[saveKey] = saveTrack[saveKey] || {};
       saveTrack[saveKey][actorUuid] = { userId, total, success, ts: Date.now() };
 
       data.saveTrack = saveTrack;
-      await msg.setFlag(FLAG_SCOPE, FLAG_KEY, data);
+      await guardarTarjeta(msg, data);
 
       await updateSavesBlock(msg);
     } catch (e) {

@@ -1,12 +1,13 @@
-import { FLAG_SCOPE, FLAG_PREFS } from "../shared/constants.js";
+import { FLAG_PREFS } from "../shared/constants.js";
+import { leerFlag, escribirFlag } from "./flags.js";
 
-export const loadActorPrefs = (actor) => actor.getFlag(FLAG_SCOPE, FLAG_PREFS) || {};
+export const loadActorPrefs = (actor) => leerFlag(actor, FLAG_PREFS) || {};
 
 export async function migrateUserPrefsToActorIfNeeded(actor) {
   const actorPrefs = loadActorPrefs(actor);
   if (actorPrefs && Object.keys(actorPrefs).length) return actorPrefs;
 
-  const userRoot = game.user?.getFlag?.(FLAG_SCOPE, FLAG_PREFS) || null;
+  const userRoot = leerFlag(game.user, FLAG_PREFS) || null;
   const legacy = userRoot?.[actor.uuid];
   if (!legacy) return actorPrefs;
 
@@ -15,7 +16,7 @@ export async function migrateUserPrefsToActorIfNeeded(actor) {
   for (const [id, cfg] of Object.entries(byItem)) converted[id] = cfg;
   converted.lastUsedItemId = legacy.lastUsedItemId || legacy?.prefs?.lastUsedItemId || null;
 
-  await actor.setFlag(FLAG_SCOPE, FLAG_PREFS, converted);
+  await escribirFlag(actor, FLAG_PREFS, converted);
   return converted;
 }
 
@@ -23,6 +24,6 @@ export async function saveActorPrefs(actor, itemId, config, allPrefsRef) {
   const current = allPrefsRef || loadActorPrefs(actor);
   current[itemId] = config;
   current.lastUsedItemId = itemId;
-  await actor.setFlag(FLAG_SCOPE, FLAG_PREFS, current);
+  await escribirFlag(actor, FLAG_PREFS, current);
   return current;
 }

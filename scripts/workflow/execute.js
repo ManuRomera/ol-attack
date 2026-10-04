@@ -1,4 +1,5 @@
-import { FLAG_SCOPE, FLAG_KEY, SOCKET_NS } from "../shared/constants.js";
+import { SOCKET_NS } from "../shared/constants.js";
+import { flagsTarjeta } from "../lib/flags.js";
 import { gp, safeNum, escapeHtml, cleanDiceBonus, translateDamageType, sanitizeFormulaLoose } from "../lib/utils.js";
 import { getProfBonus, autoAbilityForItem, getActorDamageBonusFormula } from "../lib/actor.js";
 import { getExhaustionInfo } from "../lib/exhaustion.js";
@@ -12,10 +13,27 @@ import { addPendingDamageLines } from "../lib/damage-ledger.js";
 import { prepareRoll } from "./rolls.js";
 import { resolveActionProfile, getActionExecutionPlan, getWorkflowConfigFromProfile, validateActionConfigJson, mergeProfile } from "../lib/action-profiles.js";
 import { setStatusOnSubject } from "../lib/statuses.js";
-import { LegacyDialog } from "../shared/compat.js";
+import { olChoose } from "../ui/dialogs.js";
 import { getActorHpData, getActorAbilityMod, getActorProfValue } from "../shared/system-data.js";
 
 
+
+
+// ---------- Tarjetas de chat ----------
+// Todo el aspecto vive en styles/ol-attack.css (clases `ol-chat-*`), de modo que respeta el tema
+// claro/oscuro del chat y el modo de alto contraste en lugar de llevar colores en línea.
+const tt = (key, data) => game.i18n.format(key, data ?? {});
+
+function chatHead({ img, title, tags = [] }) {
+  return `<header class="ol-chat-head">
+      <img class="ol-chat-img" src="${escapeHtml(img || "icons/svg/mystery-man.svg")}" alt="">
+      <div class="ol-chat-title"><h3>${escapeHtml(title)}</h3>${tags.length ? `<div class="ol-chat-tags">${tags.map((tag) => `<span class="ol-tag">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}</div>
+    </header>`;
+}
+
+function chatTargets(targets = []) {
+  return targets.length ? `<div class="ol-chat-targets">${targets.map((tg) => `<span class="ol-chat-target"><i class="fa-solid fa-crosshairs"></i> ${escapeHtml(tg.name)}</span>`).join("")}</div>` : "";
+}
 
 function _slugifyItemIdentity(item) {
   const name = String(item?.name || "").toLowerCase().trim();
@@ -90,30 +108,24 @@ export function getDivineSparkRollParts({ actor, item, mode = "damage", spellLev
 export async function postChoiceModeCard({ actor, token, item, targetUuids = [], profile = null, spellLevel = 0, slotKey = null, consumeSlot = false } = {}) {
   const targetDocs = await _resolveRunTargets(targetUuids);
   const targetsMeta = targetDocs.map((t) => ({ tokenUuid: t.document?.uuid || null, actorUuid: t.actor?.uuid || null, name: t.name }));
-  const tHtml = targetDocs.map((t) => `<div style="font-size:11px;">🎯 ${escapeHtml(t.name)}</div>`).join("");
+  const itemName = item?.name || "Chispa divina";
   const content = `
-  <div class="dnd5e2 chat-card" style="padding:0;">
-    <header class="card-header" style="display:flex; flex-direction:column; align-items:center; padding:0; border:0; background:transparent;">
-      <img src="${escapeHtml(item?.img || "icons/svg/mystery-man.svg")}" onerror="this.src='icons/svg/mystery-man.svg'" title="${escapeHtml(item?.name || "Chispa divina")}" style="width:100%; height:auto; max-height:200px; object-fit:cover; border:0; border-radius:4px 4px 0 0;"/>
-      <h3 class="item-name" style="margin:8px 0 4px 0; font-size:18px; border:0; width:100%; text-align:center;">${escapeHtml(item?.name || "Chispa divina")}</h3>
-    </header>
-    <div class="card-content" style="padding:0 8px 8px 8px;">
-      <div style="text-align:center; font-size:18px; font-weight:800; color:#8B0000; margin:10px 0 6px 0;">Elige cómo resolver ${escapeHtml(item?.name || "la acción")}</div>
-      <div style="font-size:12px; color:#444; margin-bottom:10px; text-align:center;">Puedes resolver esta acción en modo <b>Curar</b> o <b>Dañar</b>.</div>
-      ${tHtml ? `<div style="margin-top:5px; padding:4px; background:rgba(0,0,0,0.05)">${tHtml}</div>` : ""}
+  <div class="ol-chat" data-kind="choice">
+    ${chatHead({ img: item?.img, title: itemName })}
+    <div class="ol-chat-body">
+      <p class="ol-chat-prompt">${tt("OLATTACK.Chat.ChoosePrompt", { name: escapeHtml(itemName) })}</p>
+      ${chatTargets(targetDocs)}
     </div>
-    <div class="card-buttons ol-choice-buttons" style="padding:0 8px 8px 8px;">
-      <button type="button" class="ol-divine-spark-choice" data-choice="heal">Curar</button>
-      <button type="button" class="ol-divine-spark-choice" data-choice="damage">Dañar</button>
-    </div>
+    <footer class="ol-chat-buttons ol-choice-buttons">
+      <button type="button" class="ol-divine-spark-choice" data-choice="heal"><i class="fa-solid fa-heart-pulse"></i> ${tt("OLATTACK.Chat.Heal")}</button>
+      <button type="button" class="ol-divine-spark-choice" data-choice="damage"><i class="fa-solid fa-burst"></i> ${tt("OLATTACK.Chat.Damage")}</button>
+    </footer>
   </div>`;
 
   return ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor, token }),
     content,
-    flags: {
-      [FLAG_SCOPE]: {
-        [FLAG_KEY]: {
+    flags: flagsTarjeta({
           specialAction: "choiceMode",
           specialResolved: false,
           actorUuid: actor?.uuid || null,
@@ -132,9 +144,7 @@ export async function postChoiceModeCard({ actor, token, item, targetUuids = [],
           saveDefs: [],
           saveTrack: {},
           actionProfile: profile || resolveActionProfile(item, actor)?.profile || null
-        }
-      }
-    }
+        })
   });
 }
 
@@ -159,55 +169,26 @@ async function _chooseWorkflowTarget({ step, actor, token, availableTargets = []
   if (!availableTargets.length) return [];
   if (availableTargets.length === 1) return [availableTargets[0]];
 
-  return await new Promise((resolve) => {
-    const content = `
-      <div class="ol-theme-panel" style="display:flex; flex-direction:column; gap:10px;">
-        <p style="margin:0;">Elige a qué objetivo aplicar <b>${escapeHtml(step?.label || actor?.name || "la acción")}</b>.</p>
-        <div style="display:flex; flex-direction:column; gap:8px;">
-          ${availableTargets.map((t, index) => `
-            <button type="button" class="ol-workflow-target-choice" data-index="${index}" style="text-align:left; padding:10px 12px; border-radius:10px; border:1px solid #5f5a4f; background:rgba(0,0,0,0.15); color:inherit;">${escapeHtml(t?.name || `Objetivo ${index + 1}`)}</button>
-          `).join("")}
-        </div>
-      </div>`;
-    const dlg = new LegacyDialog({
-      title: `Elegir objetivo · ${step?.label || actor?.name || "OL Attack"}`,
-      content,
-      buttons: { cancel: { label: "Cancelar", callback: () => resolve([]) } },
-      default: "cancel",
-      close: () => resolve([])
-    }, { width: 420 });
-    dlg.render(true);
-    setTimeout(() => {
-      const html = dlg.element;
-      if (!html?.length) return;
-      html.addClass("ol-theme-dialog");
-      html.find('.ol-workflow-target-choice').on('click', (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        const index = Number(ev.currentTarget.dataset.index || 0);
-        const picked = availableTargets[index] ? [availableTargets[index]] : [];
-        resolve(picked);
-        dlg.close();
-      });
-    }, 0);
+  const key = await olChoose({
+    title: `Elegir objetivo · ${step?.label || actor?.name || "OL Attack"}`,
+    intro: `Elige a qué objetivo aplicar <b>${escapeHtml(step?.label || actor?.name || "la acción")}</b>.`,
+    options: availableTargets.map((tg, index) => ({ key: index, label: tg?.name || `Objetivo ${index + 1}`, img: tg?.document?.texture?.src || tg?.actor?.img }))
   });
+  const picked = key === null ? null : availableTargets[Number(key)];
+  return picked ? [picked] : [];
 }
 
 async function _postWorkflowEffectCard({ actor, token, item, step, targetDocs = [] } = {}) {
-  const title = escapeHtml(step?.label || item?.name || "Efecto");
+  const title = step?.label || item?.name || "Efecto";
   const text = String(step?.description || "").trim() || "Sin descripción.";
-  const targetsHtml = targetDocs.map((t) => `<div style="font-size:11px;">🎯 ${escapeHtml(t.name)}</div>`).join("");
   return ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor, token }),
     content: `
-      <div class="dnd5e2 chat-card" style="padding:0;">
-        <header class="card-header" style="display:flex; flex-direction:column; align-items:center; padding:0; border:0; background:transparent;">
-          <img src="${escapeHtml(item?.img || 'icons/svg/mystery-man.svg')}" style="width:100%; height:auto; max-height:180px; object-fit:cover; border-radius:4px 4px 0 0;"/>
-          <h3 class="item-name" style="margin:8px 0 4px 0; font-size:18px; border:0; width:100%; text-align:center;">${title}</h3>
-        </header>
-        <div class="card-content" style="padding:0 8px 10px 8px;">
-          <div style="font-size:13px; line-height:1.45; color:#444;">${escapeHtml(text).replace(/\n/g,'<br>')}</div>
-          ${targetsHtml ? `<div style="margin-top:8px; padding:4px; background:rgba(0,0,0,0.05)">${targetsHtml}</div>` : ''}
+      <div class="ol-chat" data-kind="effect">
+        ${chatHead({ img: item?.img, title })}
+        <div class="ol-chat-body">
+          <p class="ol-chat-text">${escapeHtml(text).replace(/\n/g, "<br>")}</p>
+          ${chatTargets(targetDocs)}
         </div>
       </div>`
   });
@@ -217,39 +198,11 @@ async function _chooseWorkflowBranch(step = {}) {
   const entries = Object.entries(step?.branches || {});
   if (!entries.length) return null;
   if (entries.length === 1) return entries[0][0];
-  return await new Promise((resolve) => {
-    const content = `
-      <div class="ol-theme-panel" style="display:flex; flex-direction:column; gap:12px;">
-        <p style="margin:0;">${escapeHtml(step?.description || `Elige cómo resolver ${step?.label || 'la acción'}.`)}</p>
-        <div style="display:flex; flex-direction:column; gap:8px;">
-          ${entries.map(([key, branch]) => `
-            <button type="button" class="ol-workflow-branch-choice" data-branch="${escapeHtml(key)}" style="text-align:left; padding:10px 12px; border-radius:10px; border:1px solid #5f5a4f; background:rgba(0,0,0,0.15); color:inherit;">
-              <div style="font-weight:700;">${escapeHtml(branch?.label || key)}</div>
-              ${branch?.description ? `<div style="font-size:11px; opacity:0.8; margin-top:3px;">${escapeHtml(branch.description)}</div>` : ''}
-            </button>
-          `).join("")}
-        </div>
-      </div>`;
-    const dlg = new LegacyDialog({
-      title: `Elegir modo · ${step?.label || 'Acción'}`,
-      content,
-      buttons: { cancel: { label: 'Cancelar', callback: () => resolve(null) } },
-      default: 'cancel',
-      close: () => resolve(null)
-    }, { width: 440 });
-    dlg.render(true);
-    setTimeout(() => {
-      const html = dlg.element;
-      if (!html?.length) return;
-      html.addClass('ol-theme-dialog');
-      html.find('.ol-workflow-branch-choice').on('click', (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        const key = String(ev.currentTarget.dataset.branch || '').trim();
-        resolve(key || null);
-        dlg.close();
-      });
-    }, 0);
+  return olChoose({
+    title: `Elegir modo · ${step?.label || 'Acción'}`,
+    intro: escapeHtml(step?.description || `Elige cómo resolver ${step?.label || 'la acción'}.`),
+    options: entries.map(([key, branch]) => ({ key, label: branch?.label || key, hint: branch?.description || "" })),
+    width: 460
   });
 }
 
@@ -285,7 +238,7 @@ async function _executeWorkflowSteps({ actor, token, item, opts, availableTarget
         }
         results.push(await ChatMessage.create({
           speaker: ChatMessage.getSpeaker({ actor, token }),
-          content: `<div class="dnd5e2 chat-card" style="padding:8px 10px;"><h3 style="margin:0 0 6px 0; border:0;">${escapeHtml(label)}</h3><div style="font-size:13px; color:#444;">${escapeHtml(active ? 'Estado aplicado' : 'Estado quitado')}: <b>${escapeHtml(String(step?.statusId || ''))}</b>${applied.length ? ` → ${escapeHtml(applied.join(', '))}` : ''}</div></div>`
+          content: `<div class="ol-chat" data-kind="status"><div class="ol-chat-body"><h3 class="ol-chat-h">${escapeHtml(label)}</h3><p class="ol-chat-text">${escapeHtml(active ? tt("OLATTACK.Chat.StatusApplied") : tt("OLATTACK.Chat.StatusRemoved"))}: <b>${escapeHtml(String(step?.statusId || ''))}</b>${applied.length ? ` → ${escapeHtml(applied.join(', '))}` : ''}</p></div></div>`
         }));
         continue;
       }
@@ -561,15 +514,9 @@ const mod = ab ? safeNum(getActorAbilityMod(actor, ab), 0) : 0;
     const die = String(bonusDieInfo.formula);
     const lbl = String(bonusDieInfo.label || opts.itemName || opts.rollTitle || "Bono");
     breakdown = `
-      <div style="margin-top:6px; font-size:13px; border-bottom:1px solid #ccc; padding-bottom:6px;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <span><strong>Dado de bonificación</strong> <span style="font-size:11px; color:#555;">(${escapeHtml(lbl)})</span></span>
-          <span style="font-weight:900; color:#8B0000;">${escapeHtml(die)}</span>
-        </div>
-        <div class="ol-hidden-details" style="display:none; color:#666; font-size:11px; margin-top:6px; background:rgba(0,0,0,0.03); padding:6px; border-radius:6px;">
-          Este rasgo/hechizo concede un dado que el objetivo puede <b>sumar</b> a su tirada cuando corresponda.<br>
-          Dado: <code>${escapeHtml(die)}</code>
-        </div>
+      <div class="ol-chat-row">
+        <div class="ol-chat-line"><span><strong>${tt("OLATTACK.Chat.BonusDie")}</strong> <small>(${escapeHtml(lbl)})</small></span><b class="ol-chat-accent">${escapeHtml(die)}</b></div>
+        <div class="ol-hidden-details">${tt("OLATTACK.Chat.BonusDieHint")}<br>${tt("OLATTACK.Chat.Die")}: <code>${escapeHtml(die)}</code></div>
       </div>`;
   } else {
 
@@ -645,32 +592,31 @@ const mod = ab ? safeNum(getActorAbilityMod(actor, ab), 0) : 0;
     appData.push({ amount: rollTotal, type: part.type || "bludgeoning", applyCurrent: !!part.applyCurrent, formula: chosen.formula || part.formula || "", label: part.label || "" });
 
     const diceResults = chosen.dice?.map((d) => `[${d.total}]`).join(" + ") || "";
-    const labelTxt = part.label ? ` <span style="font-size:11px; color:#555;">(${escapeHtml(part.label)})</span>` : "";
+    const labelTxt = part.label ? ` <small>(${escapeHtml(part.label)})</small>` : "";
     const totalAjustes = sumMod + sumProf + sumTemp + sumExh + sumDef;
+    const signed = (n) => `${n >= 0 ? "+" : ""}${n}`;
 
     breakdown += `
-      <div style="margin-top:4px; font-size:13px; border-bottom:1px solid #ccc; padding-bottom:4px;">
-        <div style="display:flex; justify-content:space-between;">
-          <span><strong>${rollTotal}</strong> ${escapeHtml(translateDamageType(part.type))}${labelTxt}</span>
-        </div>
-        <div class="ol-hidden-details" style="display:none; color:#666; font-size:11px; margin-top:2px; background:rgba(0,0,0,0.03); padding:4px; border-radius:4px;">
-          ${part.label ? `Bonificación: <b>${escapeHtml(part.label)}</b><br>` : ""}
-          Fórmula: <code>${escapeHtml(chosen.formula)}</code><br>
-          Dados: <span style="color:#a00; font-weight:bold;">${escapeHtml(diceResults)}</span> = <b>${chosen.total}</b>
-          ${other ? `<br>Tirada Doble: [${other.total}] vs [${chosen.total}]` : ""}
-          ${ex.level > 0 && isHomebrew && i === 0 && cardKind === "damage" ? `<br>😮‍💨 Cansancio ${ex.level} → -${exhaustionPenalty} (solo daño)` : ""}
-          ${bonusApplied ? `<br>🧩 Bonos/Estados (actor): <code>${escapeHtml(bonusApplied)}</code>` : ""}
-          ${part.isScaled ? `<br>🔮 Aumentado por Upcast` : ""}
-          <div style="margin-top:6px; padding-top:6px; border-top:1px dashed rgba(0,0,0,0.15);">
-            <div><b>Base:</b> <code>${escapeHtml(String(part.formula || "0"))}</code></div>
-            <div><b>Mod:</b> ${sumMod >= 0 ? "+" : ""}${sumMod}</div>
-            <div><b>Prof:</b> ${sumProf >= 0 ? "+" : ""}${sumProf}</div>
-            <div><b>Temp:</b> ${sumTemp >= 0 ? "+" : ""}${sumTemp}</div>
-            <div><b>Cansancio:</b> ${sumExh >= 0 ? "+" : ""}${sumExh}</div>
-            ${bonusApplied ? `<div><b>Bonos/Estados:</b> <code>${escapeHtml(bonusApplied)}</code></div>` : ""}
-            <div><b>Defensa:</b> ${sumDef >= 0 ? "+" : ""}${sumDef}</div>
-            <div style="margin-top:3px;"><b>Total ajustes:</b> ${totalAjustes >= 0 ? "+" : ""}${totalAjustes}</div>
-          </div>
+      <div class="ol-chat-row">
+        <div class="ol-chat-line"><span><strong>${rollTotal}</strong> ${escapeHtml(translateDamageType(part.type))}${labelTxt}</span></div>
+        <div class="ol-hidden-details">
+          ${part.label ? `${tt("OLATTACK.Chat.Bonus")}: <b>${escapeHtml(part.label)}</b><br>` : ""}
+          ${tt("OLATTACK.Chat.Formula")}: <code>${escapeHtml(chosen.formula)}</code><br>
+          ${tt("OLATTACK.Chat.Dice")}: <span class="ol-chat-dice">${escapeHtml(diceResults)}</span> = <b>${chosen.total}</b>
+          ${other ? `<br>${tt("OLATTACK.Chat.DoubleRoll")}: [${other.total}] vs [${chosen.total}]` : ""}
+          ${ex.level > 0 && isHomebrew && i === 0 && cardKind === "damage" ? `<br>${tt("OLATTACK.Chat.Exhaustion", { level: ex.level, penalty: exhaustionPenalty })}` : ""}
+          ${bonusApplied ? `<br>${tt("OLATTACK.Chat.StatesBonus")}: <code>${escapeHtml(bonusApplied)}</code>` : ""}
+          ${part.isScaled ? `<br>${tt("OLATTACK.Chat.Upcast")}` : ""}
+          <dl class="ol-chat-sums">
+            <dt>${tt("OLATTACK.Chat.Base")}</dt><dd><code>${escapeHtml(String(part.formula || "0"))}</code></dd>
+            <dt>Mod</dt><dd>${signed(sumMod)}</dd>
+            <dt>Prof</dt><dd>${signed(sumProf)}</dd>
+            <dt>Temp</dt><dd>${signed(sumTemp)}</dd>
+            <dt>${tt("OLATTACK.Chat.ExhaustionShort")}</dt><dd>${signed(sumExh)}</dd>
+            ${bonusApplied ? `<dt>${tt("OLATTACK.Chat.States")}</dt><dd><code>${escapeHtml(bonusApplied)}</code></dd>` : ""}
+            <dt>${tt("OLATTACK.Chat.Defense")}</dt><dd>${signed(sumDef)}</dd>
+            <dt>${tt("OLATTACK.Chat.TotalAdjust")}</dt><dd><b>${signed(totalAjustes)}</b></dd>
+          </dl>
         </div>
       </div>`;
   }
@@ -688,20 +634,17 @@ const mod = ab ? safeNum(getActorAbilityMod(actor, ab), 0) : 0;
       }
       const diceResults = r.dice?.map((d) => `[${d.total}]`).join(" + ") || "";
       breakdown += `
-        <div style="margin-top:8px; font-size:13px; border:1px dashed rgba(0,0,0,0.25); padding:6px; border-radius:8px; background:rgba(0,0,0,0.03);">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span><strong>🎲 ${escapeHtml(traitExtraRoll.label || "Dados extra")}</strong></span>
-            <span style="font-weight:900; color:#8B0000;">${escapeHtml(String(r.total))}</span>
-          </div>
-          <div class="ol-hidden-details" style="display:none; color:#666; font-size:11px; margin-top:6px;">
-            Fórmula: <code>${escapeHtml(String(r.formula))}</code><br>
-            Dados: <span style="color:#a00; font-weight:bold;">${escapeHtml(diceResults)}</span> = <b>${escapeHtml(String(r.total))}</b>
+        <div class="ol-chat-row ol-chat-extra">
+          <div class="ol-chat-line"><span><strong><i class="fa-solid fa-dice"></i> ${escapeHtml(traitExtraRoll.label || tt("OLATTACK.Preview.ExtraDice"))}</strong></span><b class="ol-chat-accent">${escapeHtml(String(r.total))}</b></div>
+          <div class="ol-hidden-details">
+            ${tt("OLATTACK.Chat.Formula")}: <code>${escapeHtml(String(r.formula))}</code><br>
+            ${tt("OLATTACK.Chat.Dice")}: <span class="ol-chat-dice">${escapeHtml(diceResults)}</span> = <b>${escapeHtml(String(r.total))}</b>
           </div>
         </div>`;
     } catch (e) {
       breakdown += `
-        <div style="margin-top:8px; font-size:12px; border:1px dashed rgba(0,0,0,0.25); padding:6px; border-radius:8px; background:rgba(255,0,0,0.04); color:#8B0000;">
-          🎲 Dados extra: no se pudo tirar (<code>${escapeHtml(String(e?.message || e))}</code>)
+        <div class="ol-chat-row ol-chat-error">
+          <i class="fa-solid fa-triangle-exclamation"></i> ${tt("OLATTACK.Chat.ExtraDiceFailed")} (<code>${escapeHtml(String(e?.message || e))}</code>)
         </div>`;
     }
   }
@@ -737,52 +680,43 @@ const mod = ab ? safeNum(getActorAbilityMod(actor, ab), 0) : 0;
   const isTempHp = firstType === "temphp" || firstType.includes("temp");
   const isTempMax = firstType === "tempmax";
   const centerLabel = cardKind === "damage"
-    ? `${total} DAÑO`
+    ? `<b>${total}</b> ${tt("OLATTACK.Chat.DamageWord")}`
     : cardKind === "heal"
-      ? (isTempMax ? `+${total} PG MÁX` : (isTempHp ? `+${total} PG TEMP` : `+${total} CURACIÓN`))
+      ? (isTempMax ? `<b>+${total}</b> ${tt("OLATTACK.Chat.TempMaxWord")}` : (isTempHp ? `<b>+${total}</b> ${tt("OLATTACK.Chat.TempHpWord")}` : `<b>+${total}</b> ${tt("OLATTACK.Chat.HealWord")}`))
       : cardKind === "bonusdie"
-        ? `DADO: ${String(bonusDieInfo?.formula || "").trim()}`
+        ? `${tt("OLATTACK.Chat.Die")}: <b>${escapeHtml(String(bonusDieInfo?.formula || "").trim())}</b>`
         : cardKind === "effectRoll"
-          ? `${total} ${(/reducci/i.test(String(rollParts[0]?.label||""))) ? "REDUCCIÓN" : "EFECTO"}`
-          : `EFECTO`;
+          ? `<b>${total}</b> ${(/reducci/i.test(String(rollParts[0]?.label||""))) ? tt("OLATTACK.Chat.ReductionWord") : tt("OLATTACK.Chat.EffectWord")}`
+          : `<b>${tt("OLATTACK.Chat.EffectWord")}</b>`;
 
+  const detailsBtn = `<button type="button" class="ol-toggle-details"><i class="fa-solid fa-list"></i> ${game.i18n.localize("OLATTACK.ToggleDetails")}</button>`;
   const buttonsHtml =
     cardKind === "damage"
-      ? `<button type="button" class="ol-toggle-details">${game.i18n.localize("OLATTACK.ToggleDetails")}</button><button type="button" class="ol-apply-damage" data-damages='${escapeHtml(JSON.stringify(appData))}'>${game.i18n.localize("OLATTACK.ApplyDamage")}</button>`
+      ? `${detailsBtn}<button type="button" class="ol-apply-damage" data-damages='${escapeHtml(JSON.stringify(appData))}'><i class="fa-solid fa-burst"></i> ${game.i18n.localize("OLATTACK.ApplyDamage")}</button>`
       : cardKind === "heal"
-        ? `<button type="button" class="ol-toggle-details">${game.i18n.localize("OLATTACK.ToggleDetails")}</button><button type="button" class="ol-apply-heal" data-heals='${escapeHtml(JSON.stringify(appData))}'>${game.i18n.localize("OLATTACK.ApplyHeal")}</button>`
-        : `<button type="button" class="ol-toggle-details">${game.i18n.localize("OLATTACK.ToggleDetails")}</button>`;
-
-  const tHtml = targets.map((t) => `<div style="font-size:11px;">🎯 ${escapeHtml(t.name)}</div>`).join("");
+        ? `${detailsBtn}<button type="button" class="ol-apply-heal" data-heals='${escapeHtml(JSON.stringify(appData))}'><i class="fa-solid fa-heart-pulse"></i> ${game.i18n.localize("OLATTACK.ApplyHeal")}</button>`
+        : detailsBtn;
 
   // content
   const content = `
-  <div class="dnd5e2 chat-card" style="padding:0;">
-    <header class="card-header" style="display:flex; flex-direction:column; align-items:center; padding:0; border:0; background:transparent;">
-      <img src="${itemImg}" onerror="this.src='icons/svg/sword.svg'" title="${escapeHtml(rollTitle)}" style="width:100%; height:auto; max-height:200px; object-fit:cover; border:0; border-radius:4px 4px 0 0;"/>
-      <h3 class="item-name" style="margin:8px 0 4px 0; font-size:18px; border:0; width:100%; text-align:center;">${escapeHtml(rollTitle)}</h3>
-      <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:4px; margin-bottom:8px; padding:0 8px;">
-        ${tags.map((tag) => `<span style="font-size:9px; font-weight:bold; color:#444; border:1px solid #999; border-radius:3px; padding:1px 4px; text-transform:uppercase; background:rgba(255,255,255,0.5);">${escapeHtml(tag)}</span>`).join("")}
-      </div>
-    </header>
-    <div class="card-content" style="padding:0 8px 8px 8px;">
-      ${opts.showDescription && opts.descriptionHtml ? `<div style="font-size:12px; color:#444; margin-bottom:10px; border-bottom:1px solid #ccc; padding-bottom:8px; max-height:150px; overflow-y:auto;">${opts.descriptionHtml}</div>` : ""}
-      ${specialNotes.length ? `<div style="margin:0 0 10px 0; padding:8px 10px; border:1px dashed #b58900; border-radius:8px; background:rgba(181,137,0,0.08); font-size:11px; color:#6b5600;">${specialNotes.map((n) => escapeHtml(n)).join("<br>")}</div>` : ""}
-      ${effectNote?.text ? `<div style="margin:0 0 10px 0; padding:8px 10px; border:1px solid rgba(210,154,56,0.45); border-radius:8px; background:rgba(210,154,56,0.08); font-size:12px; color:#5a430a;"><div style="font-weight:800; margin-bottom:4px;">${escapeHtml(effectNote.title || "Recordatorio")}</div><div>${escapeHtml(effectNote.text).replace(/\n/g, "<br>")}</div></div>` : ""}
-      <div style="text-align:center; font-size:24px; font-weight:bold; color:#8B0000; margin:10px 0;">${centerLabel}</div>
+  <div class="ol-chat" data-kind="${escapeHtml(cardKind)}">
+    ${chatHead({ img: itemImg, title: rollTitle, tags })}
+    <div class="ol-chat-body">
+      ${opts.showDescription && opts.descriptionHtml ? `<div class="ol-chat-desc">${opts.descriptionHtml}</div>` : ""}
+      ${specialNotes.length ? `<div class="ol-chat-note">${specialNotes.map((n) => escapeHtml(n)).join("<br>")}</div>` : ""}
+      ${effectNote?.text ? `<div class="ol-chat-note is-info"><strong>${escapeHtml(effectNote.title || tt("OLATTACK.Chat.Reminder"))}</strong><br>${escapeHtml(effectNote.text).replace(/\n/g, "<br>")}</div>` : ""}
+      <div class="ol-chat-result">${centerLabel}</div>
       ${breakdown}
-      ${tHtml ? `<div style="margin-top:5px; padding:4px; background:rgba(0,0,0,0.05)">${tHtml}</div>` : ""}
+      ${chatTargets(targets)}
       ${savesHtml}
     </div>
-    <div class="card-buttons" style="padding:0 8px 8px 8px;">${buttonsHtml}</div>
+    <footer class="ol-chat-buttons">${buttonsHtml}</footer>
   </div>`;
 
   const msg = await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor, token }),
     content,
-    flags: {
-      [FLAG_SCOPE]: {
-        [FLAG_KEY]: {
+    flags: flagsTarjeta({
           targets: targets.map((t) => t.document.uuid),
           targetsMeta,
           strictTargets: false,
@@ -797,9 +731,7 @@ const mod = ab ? safeNum(getActorAbilityMod(actor, ab), 0) : 0;
           damagePayload: cardKind === "damage" ? appData : [],
           healPayload: cardKind === "heal" ? appData : [],
           actionProfile: resolvedActionProfile?.profile || resolveActionProfile(item, actor)?.profile || null
-        }
-      }
-    }
+        })
   });
 
   if (cardKind === "damage" && appData.length && targets.length) {

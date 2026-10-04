@@ -1,0 +1,32 @@
+name: Publicar
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: Validar etiqueta, manifiesto, idiomas y código
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: node scripts/check.mjs
+      - name: Empaquetar
+        run: |
+          mkdir -p dist
+          zip -r dist/ol-attack.zip module.json scripts templates styles lang README.md CHANGELOG.md
+          cp module.json dist/module.json
+      - name: Notas de la versión
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="## $version" '$0==v{p=1;next} /^## /{p=0} p' CHANGELOG.md > dist/notas.md
+          test -s dist/notas.md || echo "Versión $version." > dist/notas.md
+      - name: Publicar release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/ol-attack.zip dist/module.json --title "OL Attack $GITHUB_REF_NAME" --notes-file dist/notas.md

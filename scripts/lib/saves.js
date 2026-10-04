@@ -138,55 +138,42 @@ export async function getSavesFromItem(item, actor, { isHomebrew = false } = {})
   return saves;
 }
 
+const tt = (key, data) => game.i18n.format(key, data ?? {});
+
 export function renderSaveProgress({ saveKey, targetsMeta = [], saveTrack = {} }) {
   const done = saveTrack?.[saveKey] || {};
   const rows = targetsMeta.map((t) => {
-    const aUuid = t.actorUuid;
-    const ok = !!(aUuid && done[aUuid]);
-    const cls = ok ? "ol-save-progress-badge done" : "ol-save-progress-badge";
-    const badge = ok ? "✅" : "⏳";
-    return `<span class="${cls}">${badge} ${escapeHtml(t.name || "Objetivo")}</span>`;
+    const ok = !!(t.actorUuid && done[t.actorUuid]);
+    return `<span class="ol-save-progress-badge${ok ? " done" : ""}"><i class="fa-solid ${ok ? "fa-circle-check" : "fa-hourglass-half"}"></i> ${escapeHtml(t.name || tt("OLATTACK.Chat.Target"))}</span>`;
   });
   const countDone = targetsMeta.filter((t) => !!(t.actorUuid && done[t.actorUuid])).length;
   const total = targetsMeta.length || 0;
 
   return `
-    <div style="margin-top:6px; font-size:11px; color:#bbb;">
-      <div style="margin-bottom:4px;"><b>Progreso TS:</b> ${countDone}/${total}</div>
-      <div>${rows.join("") || `<span style="color:#888;">(Sin objetivos)</span>`}</div>
+    <div class="ol-save-progress">
+      <div class="ol-save-progress-head"><b>${tt("OLATTACK.Chat.SaveProgress")}:</b> ${countDone}/${total}</div>
+      <div class="ol-save-progress-list">${rows.join("") || `<span class="ol-muted">${tt("OLATTACK.Chat.NoTargets")}</span>`}</div>
     </div>
   `;
 }
 
 export function renderSavesHtml({ saveDefs = [], targetsMeta = [], saveTrack = {} }) {
   if (!saveDefs.length) return "";
+  const data = (s) => `data-savekey="${escapeHtml(s.saveKey)}" data-ability="${escapeHtml(s.ability)}"
+            data-dc="${Number.isFinite(Number(s.dcVal)) ? escapeHtml(String(s.dcVal)) : ""}"
+            data-dctext="${escapeHtml(s.dcText || "")}"
+            data-timing="${escapeHtml(s.timing || "pre")}"`;
   return `
   <!--OL-SAVES-START-->
-  <div class="ol-saves" style="margin-top:8px; padding-top:8px; border-top:1px dashed #666">
+  <div class="ol-saves">
     ${saveDefs.map((s) => {
       const dcLabel = Number.isFinite(Number(s.dcVal)) ? String(s.dcVal) : escapeHtml(s.dcText || "Auto");
-      const title = `${translateAbility(s.ability).toUpperCase()} CD ${dcLabel}`;
+      const title = `${translateAbility(s.ability).toUpperCase()} ${tt("OLATTACK.Chat.DC")} ${dcLabel}`;
       return `
-        <div style="margin-bottom:10px;">
-          <div style="font-size:11px; font-weight:bold; color:#a00; font-style:italic; margin-bottom:2px;">
-            ${s.reason ? `⚠️ Aplica: ${escapeHtml(s.reason)}` : "⚠️ Requiere Salvación"}
-          </div>
-          <button type="button" class="ol-roll-save" data-savekey="${escapeHtml(s.saveKey)}" data-ability="${escapeHtml(s.ability)}"
-            data-dc="${Number.isFinite(Number(s.dcVal)) ? escapeHtml(String(s.dcVal)) : ""}"
-            data-dctext="${escapeHtml(s.dcText || "")}"
-            data-timing="${escapeHtml(s.timing || "pre")}"
-            style="font-size:11px; width:100%;">
-            ${escapeHtml(title)}
-          </button>
-          <button type="button" class="ol-roll-save-gm ol-gm-only"
-            data-gmmode="all"
-            data-savekey="${escapeHtml(s.saveKey)}" data-ability="${escapeHtml(s.ability)}"
-            data-dc="${Number.isFinite(Number(s.dcVal)) ? escapeHtml(String(s.dcVal)) : ""}"
-            data-dctext="${escapeHtml(s.dcText || "")}"
-            data-timing="${escapeHtml(s.timing || "pre")}"
-            style="font-size:11px; width:100%; margin-top:6px;">
-            ${escapeHtml(game.i18n?.localize?.("OLATTACK.GMRollAll") || "GM: Tirar por todos")}
-          </button>
+        <div class="ol-save">
+          <div class="ol-save-reason"><i class="fa-solid fa-triangle-exclamation"></i> ${s.reason ? `${tt("OLATTACK.Chat.Applies")}: ${escapeHtml(s.reason)}` : tt("OLATTACK.Chat.RequiresSave")}</div>
+          <button type="button" class="ol-roll-save" ${data(s)}><i class="fa-solid fa-shield-halved"></i> ${escapeHtml(title)}</button>
+          <button type="button" class="ol-roll-save-gm ol-gm-only" data-gmmode="all" ${data(s)}><i class="fa-solid fa-users"></i> ${escapeHtml(game.i18n.localize("OLATTACK.GMRollAll"))}</button>
           ${renderSaveProgress({ saveKey: s.saveKey, targetsMeta, saveTrack })}
         </div>
       `;

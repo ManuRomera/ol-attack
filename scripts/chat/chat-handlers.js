@@ -1,5 +1,7 @@
-import { FLAG_SCOPE, FLAG_KEY, SOCKET_NS } from "../shared/constants.js";
-import { LegacyDialog } from "../shared/compat.js";
+import { SOCKET_NS } from "../shared/constants.js";
+import { alRenderizarMensaje, jq } from "../shared/compat.js";
+import { olDialog } from "../ui/dialogs.js";
+import { datosTarjeta, guardarTarjeta } from "../lib/flags.js";
 import { gp, escapeHtml, safeNum, translateAbility, enrichDescription } from "../lib/utils.js";
 import { applyDamageToActor, applyHealingToActor, getDamagePreview } from "../lib/damage.js";
 import { adjustPendingDamageForSave, markPendingDamageApplied } from "../lib/damage-ledger.js";
@@ -10,8 +12,10 @@ import { shouldConsumeItemUseForProfile, shouldConsumeSpellSlotForProfile, shoul
 import { consumeSpellSlot } from "../lib/spells.js";
 import { setStatusOnSubject } from "../lib/statuses.js";
 
+const tr = (key, data) => game.i18n.format(key, data ?? {});
+
 function getMsgData(message) {
-  return message?.getFlag?.(FLAG_SCOPE, FLAG_KEY) || {};
+  return datosTarjeta(message);
 }
 
 async function resolveTargetsFromMessage(message, data) {
@@ -39,20 +43,11 @@ async function resolveTargetsFromMessage(message, data) {
 }
 
 function toggleDetails(btn) {
-  const root = btn.closest(".chat-card") || btn.closest(".message") || btn.closest(".chat-message");
-  if (!root) return;
-  const hiddenBlocks = root.querySelectorAll?.(".ol-hidden-details") ?? [];
-  if (!hiddenBlocks.length) return ui.notifications.warn("⚠️ No hay detalles ocultos en este mensaje.");
-
-  const anyVisible = Array.from(hiddenBlocks).some(h => {
-    const disp = h.style?.display ?? "";
-    return disp !== "none" && disp !== "";
-  });
-
-  const nextDisplay = anyVisible ? "none" : "block";
-  hiddenBlocks.forEach(h => { h.style.display = nextDisplay; });
-
-  btn.innerHTML = anyVisible ? game.i18n.localize("OLATTACK.ToggleDetails") : game.i18n.localize("OLATTACK.HideDetails");
+  const card = btn.closest(".ol-chat") || btn.closest(".chat-card") || btn.closest(".message-content");
+  if (!card) return;
+  if (!card.querySelector(".ol-hidden-details")) return ui.notifications.warn(tr("OLATTACK.Chat.NoDetails"));
+  const open = card.classList.toggle("ol-details-open");
+  btn.innerHTML = `<i class="fa-solid ${open ? "fa-eye-slash" : "fa-list"}"></i> ${tr(open ? "OLATTACK.HideDetails" : "OLATTACK.ToggleDetails")}`;
 }
 
 async function applyDamage(btn, message, data) {
@@ -116,59 +111,50 @@ async function applyDamage(btn, message, data) {
     }
 
     const content = `
-      <div style="font-family:Roboto,sans-serif;">
-        <div style="color:#bbb; font-size:12px; margin-bottom:8px;">
-          ${isHomebrew ? "🛡️ Homebrew: defensa por CA y RIV 33%. Respeta bypasses." : "✨ Normal: RIV 33%. Respeta bypasses."}
-        </div>
-        <hr style="border:0;border-top:1px solid #333;margin:10px 0;">
+      <div class="ol-prev">
+        <p class="ol-nota">${isHomebrew ? tr("OLATTACK.Chat.RulesHomebrew") : tr("OLATTACK.Chat.RulesNormal")}</p>
         ${previews.map((p) => `
-          <label style="display:flex; gap:10px; align-items:flex-start; padding:10px; border:1px solid #444; border-radius:10px; background:#1b1b1b; margin-bottom:10px;">
-            <input type="checkbox" class="ol-pre-check" data-uuid="${p.uuid}" checked style="margin-top:6px;">
-            <img src="${p.tActor.img}" onerror="this.src='icons/svg/mystery-man.svg'" style="width:34px;height:34px;border-radius:6px;object-fit:cover;border:1px solid #333;background:#000;margin-top:2px;">
-            <div style="flex:1;min-width:0;">
-              <div style="font-weight:900;color:#eee;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(p.tName)}</div>
-              <div style="font-size:11px;color:#aaa;margin-top:2px;">Total: ${p.preview.totalOriginal} → <b>${p.preview.totalApplied}</b> ${p.preview.hasMods ? `<span style="font-size:11px;font-weight:800;color:#111;background:#d29a38;border-radius:999px;padding:2px 8px;margin-left:8px;">RIV</span>` : ""}</div>
-              <div style="margin-top:8px; font-size:12px; color:#ddd;">
+          <label class="ol-prev-target">
+            <input type="checkbox" class="ol-pre-check" data-uuid="${escapeHtml(p.uuid)}" checked>
+            <img src="${escapeHtml(p.tActor.img)}" alt="">
+            <span class="ol-prev-body">
+              <span class="ol-prev-name">${escapeHtml(p.tName)}</span>
+              <span class="ol-prev-total">${p.preview.totalOriginal} → <b>${p.preview.totalApplied}</b> ${p.preview.hasMods ? `<span class="ol-riv">RIV</span>` : ""}</span>
+              <span class="ol-prev-lines">
                 ${p.preview.lines.map((l) => `
-                  <div style="display:flex; justify-content:space-between; gap:10px; padding:3px 0; border-bottom:1px dashed rgba(255,255,255,0.08);">
-                    <span>${escapeHtml(l.type)}</span>
-                    <span><b>${l.original}</b> → <b>${l.applied}</b> ${l.multiplier !== 1 || l.label ? `<span style="color:#d29a38;">${escapeHtml(l.label || "")}</span>` : ""}</span>
-                  </div>`).join("")}
-              </div>
-            </div>
+                  <span class="ol-prev-line"><span>${escapeHtml(l.type)}</span><span><b>${l.original}</b> → <b>${l.applied}</b> ${l.multiplier !== 1 || l.label ? `<em>${escapeHtml(l.label || "")}</em>` : ""}</span></span>`).join("")}
+              </span>
+            </span>
           </label>`).join("")}
-        <div style="color:#bbb; font-size:12px;">Desmarca los objetivos a los que NO quieres aplicar daño.</div>
+        <p class="ol-nota">${tr("OLATTACK.Chat.UncheckTargets")}</p>
       </div>`;
 
-    new LegacyDialog({
-      title: "Previsualizar & Aplicar Daño",
-      content,
-      buttons: {
-        apply: {
-          label: "Aplicar a seleccionados",
-          callback: async (html) => {
-            const selected = [];
-            html.find("input.ol-pre-check").each((_, el) => { if (el.checked) selected.push(el.dataset.uuid); });
-            if (!selected.length) return ui.notifications.warn("⚠️ No has seleccionado objetivos.");
+    const selected = await olDialog({
+      title: "OLATTACK.Chat.PreviewDamage", icon: "fa-solid fa-burst", width: 560, content, memoria: "apply-damage",
+      buttons: [
+        {
+          action: "apply", label: tr("OLATTACK.Chat.ApplySelected"), icon: "fa-solid fa-check", default: true,
+          callback: (_ev, button) => Array.from(button.form.querySelectorAll("input.ol-pre-check:checked")).map((el) => el.dataset.uuid)
+        },
+        { action: "cancel", label: tr("OLATTACK.Cancel"), icon: "fa-solid fa-xmark", callback: () => null }
+      ]
+    });
+    if (!selected) return;
+    if (!selected.length) return ui.notifications.warn(tr("OLATTACK.Chat.NoTargetsPicked"));
 
-            let appliedCount = 0, detailsMsg = "";
-            for (const uuid of selected) {
-              const entry = previews.find((x) => x.uuid === uuid);
-              if (!entry || (!game.user.isGM && !entry.tActor.isOwner)) continue;
-              const out = await applyToOne(entry);
-              appliedCount++;
-              detailsMsg += `<strong>${escapeHtml(entry.tName)}:</strong> Total ${out.totalForActor} [${out.actDetails.join(" | ")}]<br>`;
-            }
-            if (appliedCount) {
-              btn.disabled = true;
-              btn.innerHTML = `<i class="fas fa-check"></i> Daño aplicado`;
-              ui.notifications.info(`<strong>Daño aplicado:</strong><br>${detailsMsg}`);
-            }
-          }
-        }
-      },
-      default: "apply"
-    }, { width: 580 }).render(true);
+    let appliedCount = 0, detailsMsg = "";
+    for (const uuid of selected) {
+      const entry = previews.find((x) => x.uuid === uuid);
+      if (!entry || (!game.user.isGM && !entry.tActor.isOwner)) continue;
+      const out = await applyToOne(entry);
+      appliedCount++;
+      detailsMsg += `<strong>${escapeHtml(entry.tName)}:</strong> Total ${out.totalForActor} [${out.actDetails.join(" | ")}]<br>`;
+    }
+    if (appliedCount) {
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fas fa-check"></i> ${tr("OLATTACK.Chat.DamageApplied")}`;
+      ui.notifications.info(`<strong>${tr("OLATTACK.Chat.DamageApplied")}:</strong><br>${detailsMsg}`);
+    }
   } finally {
     setTimeout(() => (btn.dataset.olLock = "0"), 200);
   }
@@ -215,45 +201,40 @@ async function applyHeal(btn, message, data) {
     }
 
     const content = `
-      <div style="font-family:Roboto,sans-serif;">
-        <div style="color:#bbb; font-size:12px; margin-bottom:8px;">Total: <b>${totalHeal}</b> (puede incluir curación/PG temp/PG máx temp). Selecciona a quién aplicar:</div>
+      <div class="ol-prev">
+        <p class="ol-nota">${tr("OLATTACK.Chat.HealIntro", { total: totalHeal })}</p>
         ${resolved.map((r) => `
-          <label style="display:flex; gap:8px; align-items:center; padding:6px 8px; border:1px solid #444; border-radius:8px; background:#1b1b1b; margin-bottom:6px; cursor:pointer;">
+          <label class="ol-prev-target ol-prev-simple">
             <input type="checkbox" class="ol-heal-pick" data-uuid="${escapeHtml(r.uuid)}" checked>
-            <span style="color:#eee; font-weight:700;">${escapeHtml(r.tName)}</span>
+            <span class="ol-prev-name">${escapeHtml(r.tName)}</span>
           </label>`).join("")}
       </div>`;
 
-    new LegacyDialog({
-      title: "Aplicar Curación",
-      content,
-      buttons: {
-        apply: {
-          label: "Aplicar",
-          callback: async (html) => {
-            const picks = [];
-            html.find("input.ol-heal-pick").each((_, el) => { if (el.checked) picks.push(el.dataset.uuid); });
-            if (!picks.length) return;
+    const picks = await olDialog({
+      title: "OLATTACK.Chat.ApplyHealTitle", icon: "fa-solid fa-heart-pulse", width: 420, content, memoria: "apply-heal",
+      buttons: [
+        {
+          action: "apply", label: tr("OLATTACK.Chat.Apply"), icon: "fa-solid fa-check", default: true,
+          callback: (_ev, button) => Array.from(button.form.querySelectorAll("input.ol-heal-pick:checked")).map((el) => el.dataset.uuid)
+        },
+        { action: "cancel", label: tr("OLATTACK.Cancel"), icon: "fa-solid fa-xmark", callback: () => null }
+      ]
+    });
+    if (!picks?.length) return;
 
-            let appliedCount = 0, detailsMsg = "";
-            for (const uuid of picks) {
-              const entry = resolved.find((x) => x.uuid === uuid);
-              if (!entry || (!game.user.isGM && !entry.tActor.isOwner)) continue;
-              const out = await applyToOne(entry);
-              appliedCount++;
-              detailsMsg += `<strong>${escapeHtml(entry.tName)}:</strong> ${escapeHtml(out.details.join(" · ") || `+${totalHeal}`)}<br>`;
-            }
-
-            if (appliedCount) {
-              btn.disabled = true;
-              btn.innerHTML = `<i class="fas fa-check"></i> Curación aplicada`;
-              ui.notifications.info(`<strong>Curación aplicada:</strong><br>${detailsMsg}`);
-            }
-          }
-        }
-      },
-      default: "apply"
-    }, { width: 420 }).render(true);
+    let appliedCount = 0, detailsMsg = "";
+    for (const uuid of picks) {
+      const entry = resolved.find((x) => x.uuid === uuid);
+      if (!entry || (!game.user.isGM && !entry.tActor.isOwner)) continue;
+      const out = await applyToOne(entry);
+      appliedCount++;
+      detailsMsg += `<strong>${escapeHtml(entry.tName)}:</strong> ${escapeHtml(out.details.join(" · ") || `+${totalHeal}`)}<br>`;
+    }
+    if (appliedCount) {
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fas fa-check"></i> ${tr("OLATTACK.Chat.HealApplied")}`;
+      ui.notifications.info(`<strong>${tr("OLATTACK.Chat.HealApplied")}:</strong><br>${detailsMsg}`);
+    }
   } finally {
     setTimeout(() => (btn.dataset.olLock = "0"), 200);
   }
@@ -364,31 +345,26 @@ async function handleSaveRoll(btn, message, data, ev) {
     // Solo los jugadores reciben selector (GM: un clic = tirar todo lo pendiente)
     if (!isGM && pending.length > 1 && !ev.shiftKey) {
       const content = `
-        <div style="font-family:Roboto,sans-serif;">
-          <div style="color:#bbb; font-size:12px; margin-bottom:8px;">Selecciona con qué objetivos quieres tirar la salvación:</div>
-          ${pending.map((t) => `
-            <label style="display:flex; gap:8px; align-items:center; padding:6px 8px; border:1px solid #444; border-radius:8px; background:#1b1b1b; margin-bottom:6px; cursor:pointer;">
-              <input type="checkbox" class="ol-save-pick" data-uuid="${escapeHtml(t.actorUuid)}" checked>
-              <span style="color:#eee; font-weight:700;">${escapeHtml(t.name)}</span>
+        <div class="ol-prev">
+          <p class="ol-nota">${tr("OLATTACK.Chat.PickSaveTargets")}</p>
+          ${pending.map((tg) => `
+            <label class="ol-prev-target ol-prev-simple">
+              <input type="checkbox" class="ol-save-pick" data-uuid="${escapeHtml(tg.actorUuid)}" checked>
+              <span class="ol-prev-name">${escapeHtml(tg.name)}</span>
             </label>`).join("")}
         </div>`;
-      const selectedUuids = await new Promise((res) => {
-        new LegacyDialog({
-          title: game.i18n.localize("OLATTACK.SaveRoll"),
-          content,
-          buttons: {
-            ok: { label: "Tirar", callback: (html) => {
-              const picks = [];
-              html.find("input.ol-save-pick").each((_, el) => { if (el.checked) picks.push(el.dataset.uuid); });
-              res(picks);
-            }},
-            cancel: { label: game.i18n.localize("OLATTACK.Cancel"), callback: () => res([]) }
+      const selectedUuids = await olDialog({
+        title: "OLATTACK.SaveRoll", icon: "fa-solid fa-shield-halved", width: 420, content, memoria: "save-pick",
+        buttons: [
+          {
+            action: "ok", label: tr("OLATTACK.Chat.Roll"), icon: "fa-solid fa-dice-d20", default: true,
+            callback: (_ev, button) => Array.from(button.form.querySelectorAll("input.ol-save-pick:checked")).map((el) => el.dataset.uuid)
           },
-          default: "ok"
-        }, { width: 420 }).render(true);
-      });
-      chosen = pending.filter((t) => selectedUuids.includes(t.actorUuid));
-      if (!chosen.length) return ui.notifications.warn("⚠️ No has seleccionado objetivos.");
+          { action: "cancel", label: tr("OLATTACK.Cancel"), icon: "fa-solid fa-xmark", callback: () => [] }
+        ]
+      }) ?? [];
+      chosen = pending.filter((tg) => selectedUuids.includes(tg.actorUuid));
+      if (!chosen.length) return ui.notifications.warn(tr("OLATTACK.Chat.NoTargetsPicked"));
     }
 
     // Tirar
@@ -431,25 +407,20 @@ async function handleSaveRoll(btn, message, data, ev) {
         if (t.tokenUuid) autoAppliedTokenUuids.add(t.tokenUuid);
       }
 
-      const badgeBg = success === null ? "#f4f4f4" : success ? "#e8f5e9" : "#ffebee";
-      const badgeColor = success === null ? "#666" : success ? "#2e7d32" : "#c62828";
-      const badgeBorder = success === null ? "#ddd" : success ? "#a5d6a7" : "#ef9a9a";
-      const badgeText = success === null ? "—" : success ? "ÉXITO" : "FALLO";
+      const state = success === null ? "none" : success ? "success" : "fail";
+      const badgeText = success === null ? "—" : success ? tr("OLATTACK.Chat.Success") : tr("OLATTACK.Chat.Failure");
       const noticesHtml = Array.isArray(autoResult?.notices) && autoResult.notices.length
-        ? `<div style="padding:0 18px 12px 18px;font-size:11px;color:#5b3e00;">${autoResult.notices.map((note) => `<div>⚙️ ${escapeHtml(note)}</div>`).join("")}</div>`
+        ? `<div class="ol-save-notices">${autoResult.notices.map((note) => `<div><i class="fa-solid fa-gear"></i> ${escapeHtml(note)}</div>`).join("")}</div>`
         : "";
 
       rowsHtml += `
-        <div style="background:#fff;border-radius:10px;border:1px solid #e8e0d8;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04);position:relative;margin-bottom:10px;">
-          <div style="position:absolute;left:0;top:0;bottom:0;width:5px;background:#b71c1c;border-radius:10px 0 0 10px;"></div>
-          <div style="display:flex;align-items:center;padding:12px 14px 12px 18px;gap:12px;">
-            <div style="flex:1;min-width:0;overflow:hidden;">
-              <div style="font-weight:700;font-size:15px;color:#1a1a1a;margin:0 0 3px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3;" title="${escapeHtml(t.name)}">${escapeHtml(t.name)}</div>
-              <div style="font-size:11px;color:#777;">${escapeHtml(game.user.name)} · <code style="font-weight:700;">${escapeHtml(roll.formula)}</code></div>
-            </div>
-            <div style="min-width:52px;text-align:center;font-weight:800;font-size:24px;color:#1a1a1a;padding:8px 12px;background:#f0ebe5;border-radius:8px;border:1px solid #e0d8d0;">${total ?? "—"}</div>
-            <div style="min-width:76px;text-align:center;padding:7px 14px;border-radius:999px;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:0.3px;background:${badgeBg};color:${badgeColor};border:1px solid ${badgeBorder};">${badgeText}</div>
+        <div class="ol-save-row is-${state}">
+          <div class="ol-save-who">
+            <b data-tooltip="${escapeHtml(t.name)}">${escapeHtml(t.name)}</b>
+            <small>${escapeHtml(game.user.name)} · <code>${escapeHtml(roll.formula)}</code></small>
           </div>
+          <div class="ol-save-total">${total ?? "—"}</div>
+          <div class="ol-save-badge">${badgeText}</div>
           ${noticesHtml}
         </div>`;
     }
@@ -466,7 +437,7 @@ async function handleSaveRoll(btn, message, data, ev) {
         .flatMap((t) => [t?.tokenUuid, t?.actorUuid])
         .filter(Boolean));
       const remainingTargets = (Array.isArray(liveData.targets) ? liveData.targets : []).filter((uuid) => !removedUuids.has(uuid));
-      await message.setFlag(FLAG_SCOPE, FLAG_KEY, {
+      await guardarTarjeta(message, {
         ...liveData,
         targets: remainingTargets,
         targetsMeta: remainingTargetsMeta,
@@ -474,20 +445,20 @@ async function handleSaveRoll(btn, message, data, ev) {
       });
     }
 
-    const timingText = timing === "post" ? "después" : "antes";
+    const timingText = tr(timing === "post" ? "OLATTACK.Chat.TimingAfter" : "OLATTACK.Chat.TimingBefore");
     const abilityLabel = translateAbility(abil);
 
     const saveCardHtml = `
-      <div style="font-family:'Roboto',sans-serif;border-radius:12px;overflow:hidden;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.15);max-width:420px;margin:0 auto;">
-        <div style="background:linear-gradient(135deg,#5a1a1a 0%,#3d1212 100%);color:#fff;padding:14px 16px;">
-          <h3 style="font-size:15px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;margin:0 0 6px 0;color:#fff;">Tirada de Salvación</h3>
-          <p style="font-size:14px;font-weight:500;color:rgba(255,255,255,0.9);margin:0;">${escapeHtml(data.itemName || "Efecto")}</p>
+      <div class="ol-chat ol-chat-save" data-kind="save">
+        <header class="ol-chat-head">
+          <i class="ol-chat-icon fa-solid fa-shield-halved"></i>
+          <div class="ol-chat-title"><h3>${tr("OLATTACK.SaveRoll")}</h3><div class="ol-chat-sub">${escapeHtml(data.itemName || tr("OLATTACK.Chat.Effect"))}</div></div>
+        </header>
+        <div class="ol-chat-tags ol-chat-tags-bar">
+          <span class="ol-tag"><i class="fa-solid fa-shield-halved"></i> ${escapeHtml(abilityLabel)} ${tr("OLATTACK.Chat.DC")} ${escapeHtml(dcLabel)}</span>
+          <span class="ol-tag"><i class="fa-solid fa-clock"></i> ${tr("OLATTACK.Chat.ResolvesTiming", { timing: timingText })}</span>
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;padding:10px 16px;background:linear-gradient(135deg,#5a1a1a 0%,#3d1212 100%);border-top:1px solid rgba(255,255,255,0.1);">
-          <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,0.15);font-size:12px;color:#fff;font-weight:500;"><i class="fas fa-shield-alt" style="font-size:11px;opacity:0.9;"></i> ${escapeHtml(abilityLabel)} CD ${escapeHtml(dcLabel)}</span>
-          <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,0.15);font-size:12px;color:#fff;font-weight:500;"><i class="fas fa-clock" style="font-size:11px;opacity:0.9;"></i> Se resuelve ${timingText} del daño</span>
-        </div>
-        <div style="padding:12px 16px;background:#faf8f6;">${rowsHtml}</div>
+        <div class="ol-chat-body">${rowsHtml}</div>
       </div>`;
 
     await ChatMessage.create({ speaker: message.speaker || ChatMessage.getSpeaker(), content: saveCardHtml });
@@ -581,17 +552,18 @@ async function handleChoiceMode(btn, message, data) {
     }
   });
 
-  await message.setFlag(FLAG_SCOPE, FLAG_KEY, { ...liveData, specialResolved: choice });
+  await guardarTarjeta(message, { ...liveData, specialResolved: choice });
   btn.closest('.card-buttons')?.querySelectorAll('button.ol-divine-spark-choice')?.forEach((b) => { b.disabled = true; });
 }
 
 export function registerChatHandlers() {
-  Hooks.on("renderChatMessage", (message, html) => {
+  alRenderizarMensaje((message, el) => {
     const data = getMsgData(message);
     if (!data || !Object.keys(data).length) return;
+    const html = jq(el);
 
     // Marcar chat como GM para mostrar controles GM-only via CSS
-    if (game.user.isGM) html.addClass("ol-chat-is-gm");
+    if (game.user.isGM) el.classList.add("ol-chat-is-gm");
 
     if (data.specialResolved) {
       html.find("button.ol-divine-spark-choice").prop("disabled", true);

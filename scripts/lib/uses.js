@@ -38,29 +38,12 @@ function _resolveUsesNumber(item, raw, fallback = 0) {
     const n2 = Number(cleaned);
     if (Number.isFinite(n2)) return n2;
 
-    // Rechazar cualquier cosa que parezca código (esto NO es input del usuario, pero mejor ser estrictos)
-    if (/[;{}=]/.test(cleaned) || /(globalThis|window|document|Function|constructor|eval|game|foundry)/i.test(cleaned)) {
-      return fallback;
-    }
-
-    // Permitir algunas funciones matemáticas comunes usadas en fórmulas de dnd5e
-    const scope = {
-      max: Math.max,
-      min: Math.min,
-      floor: Math.floor,
-      ceil: Math.ceil,
-      round: Math.round,
-      abs: Math.abs
-    };
-
-    const fn = Function(...Object.keys(scope), `"use strict"; return (${cleaned});`);
-    const total = fn(...Object.values(scope));
+    // Fórmula de usos máximos: se evalúa como una Roll determinista (admite max/min/floor/ceil/round/abs
+    // y @datos). Nunca se ejecuta como código: `system.uses.max` lo puede editar cualquier jugador
+    // dueño del objeto y el monitor del GM lo calcula para todos los tokens.
+    if (/[^\w\s@.+\-*/%(),]/.test(cleaned) || /\d*d\d/i.test(cleaned)) return fallback; // sin dados: el máximo no puede ser aleatorio
+    const total = new Roll(cleaned).evaluateSync({ strict: false }).total;
     if (Number.isFinite(Number(total))) return Number(total);
-
-    if (typeof Roll?.safeEval === "function") {
-      const t = Roll.safeEval(cleaned);
-      if (Number.isFinite(Number(t))) return Number(t);
-    }
   } catch {}
 
   return fallback;

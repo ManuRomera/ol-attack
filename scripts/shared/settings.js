@@ -1,27 +1,14 @@
-import { MODULE_ID, SETTING_ACTION_PROFILE_REGISTRY, SETTING_PROFILE_WINDOW_STATE, SETTING_WINDOW_LAYOUT_STATE, SETTING_SCENE_TRACKER_WINDOW_STATE, SETTING_DAMAGE_LEDGER_STATE, SETTING_PLAYER_SCENE_PUBLIC_STATE, SETTING_PLAYER_SCENE_WINDOW_STATE, SETTING_SYSTEM_ADAPTER_CONFIG } from "./constants.js";
+import { MODULE_ID, SETTING_ACTION_PROFILE_REGISTRY, SETTING_SCENE_TRACKER_WINDOW_STATE, SETTING_DAMAGE_LEDGER_STATE, SETTING_PLAYER_SCENE_PUBLIC_STATE, SETTING_SYSTEM_ADAPTER_CONFIG, SETTING_FLAGS_MIGRATED } from "./constants.js";
 import { ActionProfileConfigApp } from "../ui/action-profile-config.js";
 import { SystemAdapterConfigApp } from "../ui/system-adapter-config.js";
 import { getDefaultSystemAdapterConfig } from "./system-data.js";
 
+/**
+ * La posición y el tamaño de las ventanas ya no se guardan como ajustes (escribían en la base de
+ * datos a cada arrastre): viven en localStorage, ver lib/memoria.js. Los ajustes que quedan aquí
+ * son datos reales del módulo.
+ */
 export function registerSettings() {
-  // Estado de ventana por usuario (client)
-  game.settings.register(MODULE_ID, "windowState", {
-    name: "OL Attack Window State",
-    hint: "Posición/tamaño/pestaña/último ítem por usuario.",
-    scope: "client",
-    config: false,
-    type: Object,
-    default: { left: null, top: null, width: null, height: null, tab: "main", itemId: null }
-  });
-
-  game.settings.register(MODULE_ID, SETTING_PROFILE_WINDOW_STATE, {
-    name: "OL Attack Action Profile Window State",
-    scope: "client",
-    config: false,
-    type: Object,
-    default: { left: null, top: null, width: 1100, height: 760, selectedUid: null, search: "", overridesOnly: false, activeTab: "catalog" }
-  });
-
   game.settings.register(MODULE_ID, SETTING_ACTION_PROFILE_REGISTRY, {
     name: "OL Attack Action Profile Registry",
     scope: "world",
@@ -30,25 +17,29 @@ export function registerSettings() {
     default: { profiles: {} }
   });
 
-  game.settings.register(MODULE_ID, SETTING_WINDOW_LAYOUT_STATE, {
-    name: "OL Attack Window Layout State",
-    hint: "Posición y tamaño de ventanas del módulo por usuario.",
-    scope: "client",
+  game.settings.register(MODULE_ID, SETTING_FLAGS_MIGRATED, {
+    scope: "world",
     config: false,
-    type: Object,
-    default: { windows: {} }
+    type: Boolean,
+    default: false
   });
 
+  game.settings.register(MODULE_ID, "installMacros", {
+    name: "OLATTACK.Settings.InstallMacros",
+    hint: "OLATTACK.Settings.InstallMacrosHint",
+    scope: "client",
+    config: true,
+    type: Boolean,
+    default: true
+  });
+
+  // Selección y aspecto del monitor de escena (por usuario). La geometría no va aquí.
   game.settings.register(MODULE_ID, SETTING_SCENE_TRACKER_WINDOW_STATE, {
-    name: "OL Attack Scene Tracker Window State",
+    name: "OL Attack Scene Tracker State",
     scope: "client",
     config: false,
     type: Object,
     default: {
-      left: null,
-      top: null,
-      width: 980,
-      height: 720,
       displayMode: "overview",
       visibleTokenIds: [],
       combatTokenIds: [],
@@ -68,8 +59,6 @@ export function registerSettings() {
       processedKeys: []
     }
   });
-
-
 
   game.settings.register(MODULE_ID, SETTING_PLAYER_SCENE_PUBLIC_STATE, {
     name: "OL Attack Player Scene Public State",
@@ -106,33 +95,20 @@ export function registerSettings() {
     default: getDefaultSystemAdapterConfig()
   });
 
-  game.settings.register(MODULE_ID, SETTING_PLAYER_SCENE_WINDOW_STATE, {
-    name: "OL Attack Player Scene Window State",
-    scope: "client",
-    config: false,
-    type: Object,
-    default: {
-      left: null,
-      top: null,
-      width: 860,
-      height: 520,
-      combatOrientation: "horizontal"
-    }
-  });
-
-
   game.settings.registerMenu(MODULE_ID, "systemAdapterMenu", {
-    name: "Modelo de datos / Homebrew",
-    label: "Configurar modelo de datos",
-    hint: "Ajusta rutas clave para HP, rasgos, magia y compatibilidad con Homebrew.",
+    name: "OLATTACK.Settings.AdapterName",
+    label: "OLATTACK.Settings.AdapterLabel",
+    hint: "OLATTACK.Settings.AdapterHint",
+    icon: "fa-solid fa-database",
     restricted: true,
     type: SystemAdapterConfigApp
   });
 
   game.settings.registerMenu(MODULE_ID, "actionProfileMenu", {
-    name: "Perfiles de acción",
-    label: "Configurar perfiles de acción",
-    hint: "Configura el comportamiento de hechizos, rasgos e ítems sin depender del nombre visible.",
+    name: "OLATTACK.Settings.ProfilesName",
+    label: "OLATTACK.Settings.ProfilesLabel",
+    hint: "OLATTACK.Settings.ProfilesHint",
+    icon: "fa-solid fa-sliders",
     restricted: true,
     type: ActionProfileConfigApp
   });

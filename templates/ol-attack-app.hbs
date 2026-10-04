@@ -1,324 +1,262 @@
-<div class="ol-root">
-  <form id="ol-form">
-    <div class="ol-header" title="Botón derecho para aplicar o quitar estados">
-      <img src="{{actor.img}}" onerror="this.src='icons/svg/mystery-man.svg'">
-      <div class="ol-header-info">
-        <h1>{{actor.name}}</h1>
-        <p>{{combatItems.length}} combate · {{utilitySpells.length}} conjuros soporte · {{utilityFeatures.length}} otros</p>
-        {{#if concentration.active}}
-        <div class="ol-conc" title="Concentración activa">🌀 {{localize "OLATTACK.Concentration"}}: <b>{{concentration.name}}</b>
-          <button type="button" class="ol-conc-clear" title="Terminar concentración">✖</button>
+<div class="ol-root ol-main" data-tab="{{activeTab}}">
+  <form id="ol-form" class="ol-form" autocomplete="off">
+
+    <header class="ol-head" data-tooltip="{{localize 'OLATTACK.Main.ContextHint'}}">
+      <div class="ol-portrait-wrap">
+        <img class="ol-portrait" src="{{actor.img}}" data-retrato="{{actor.id}}" alt="" {{#if canConfigList}}data-action="edit-portrait" data-tooltip="{{localize 'OLATTACK.Portrait.Edit'}}" tabindex="0" role="button"{{/if}}>
+      </div>
+      <div class="ol-head-info">
+        <h1 class="ol-name">{{actor.name}}</h1>
+        <p class="ol-sub">{{localize "OLATTACK.Main.Summary" combat=combatItems.length support=utilitySpells.length other=utilityFeatures.length}}</p>
+      </div>
+      <nav class="ol-tools" aria-label="{{localize 'OLATTACK.Main.Tools'}}">
+        <button type="button" class="ol-tool" data-action="initiative" data-tooltip="{{localize 'OLATTACK.Main.Initiative'}}" aria-label="{{localize 'OLATTACK.Main.Initiative'}}"><i class="fa-solid fa-dice-d20"></i></button>
+        <button type="button" class="ol-tool" data-action="death-save" data-tooltip="{{localize 'OLATTACK.Main.DeathSave'}}" aria-label="{{localize 'OLATTACK.Main.DeathSave'}}"><i class="fa-solid fa-skull"></i></button>
+        <button type="button" class="ol-tool" data-action="short-rest" data-tooltip="{{localize 'OLATTACK.Main.ShortRest'}}" aria-label="{{localize 'OLATTACK.Main.ShortRest'}}"><i class="fa-solid fa-mug-hot"></i></button>
+        <button type="button" class="ol-tool" data-action="long-rest" data-tooltip="{{localize 'OLATTACK.Main.LongRest'}}" aria-label="{{localize 'OLATTACK.Main.LongRest'}}"><i class="fa-solid fa-moon"></i></button>
+        <button type="button" class="ol-tool" data-action="scene-monitor" data-tooltip="{{#if isGM}}{{localize 'OLATTACK.Main.SceneMonitor'}}{{else}}{{localize 'OLATTACK.Main.CombatMonitor'}}{{/if}}" aria-label="{{localize 'OLATTACK.Main.SceneMonitor'}}"><i class="fa-solid fa-table-columns"></i></button>
+        {{#if isGM}}<button type="button" class="ol-tool ol-action-profiles" data-tooltip="{{localize 'OLATTACK.Main.Profiles'}}" aria-label="{{localize 'OLATTACK.Main.Profiles'}}"><i class="fa-solid fa-sliders"></i></button>{{/if}}
+        {{#if canConfigList}}<button type="button" class="ol-tool ol-gear" data-tooltip="{{localize 'OLATTACK.Main.ConfigList'}}" aria-label="{{localize 'OLATTACK.Main.ConfigList'}}"><i class="fa-solid fa-gear"></i></button>{{/if}}
+      </nav>
+    </header>
+
+    <section class="ol-vitals" aria-label="{{localize 'OLATTACK.Main.Vitals'}}">
+      <div class="ol-hp {{#if hp.tempActive}}has-temp{{/if}}">
+        <div class="ol-hpbar ol-hpbar-main ol-hp-editable" data-action="edit-hp" data-tooltip="{{localize 'OLATTACK.Main.EditHp'}}" role="progressbar" aria-valuemin="0" aria-valuemax="{{hp.max}}" aria-valuenow="{{hp.value}}">
+          <div class="ol-hpbar-fill" style="{{hp.fillStyle}}"></div>
+          <div class="ol-hpbar-text"><i class="fa-solid fa-heart"></i> {{hp.value}} / {{hp.max}}</div>
         </div>
-        {{/if}}
+        {{#if hp.tempActive}}<span class="ol-chip ol-chip-temp" data-tooltip="{{localize 'OLATTACK.Main.TempHp'}}"><i class="fa-solid fa-shield-heart"></i> +{{hp.temp}}</span>{{/if}}
+        {{#if hp.tempmax}}<span class="ol-chip" data-tooltip="{{localize 'OLATTACK.Main.TempMax'}}">{{localize "OLATTACK.Main.TempMaxShort"}} {{hp.tempmax}}</span>{{/if}}
       </div>
 
-      <div class="ol-header-tools">
-        <button type="button" class="ol-mini-tool" data-action="initiative" title="Tirar iniciativa">
-          <i class="fas fa-dice-d20"></i>
-        </button>
-        <button type="button" class="ol-mini-tool" data-action="death-save" title="Tirar salvación de muerte">
-          <i class="fas fa-heartbeat"></i>
-        </button>
-        <button type="button" class="ol-mini-tool" data-action="short-rest" title="Descanso corto">
-          <i class="fas fa-mug-hot"></i>
-        </button>
-        <button type="button" class="ol-mini-tool" data-action="long-rest" title="Descanso largo">
-          <i class="fas fa-moon"></i>
-        </button>
-        <button type="button" class="ol-mini-tool" data-action="scene-monitor" title="{{#if isGM}}Abrir monitor de escena{{else}}Abrir monitor de combate{{/if}}">
-          <i class="fas fa-tv"></i>
-        </button>
-        {{#if isGM}}
-        <button type="button" class="ol-mini-tool ol-action-profiles" title="Perfiles de acción">
-          <i class="fas fa-sliders-h"></i>
-        </button>
-        {{/if}}
-        {{#if canConfigList}}
-        <button type="button" class="ol-gear" title="Configurar lista"><i class="fas fa-cog"></i></button>
-        {{/if}}
+      {{#if slots.length}}
+      <div class="ol-chips" aria-label="{{localize 'OLATTACK.Main.Slots'}}">
+        <span class="ol-chips-label"><i class="fa-solid fa-hexagon-nodes"></i></span>
+        {{#each slots as |s|}}
+          <span class="ol-chip" data-tooltip="{{s.label}}">{{#if (eq s.key "pact")}}P{{else}}{{s.level}}{{/if}} <b>{{s.value}}</b>/{{s.max}}</span>
+        {{/each}}
       </div>
-    </div>
-
-    <div class="ol-resbar">
-      <div class="ol-res-row ol-res-row-hp">
-        <div class="ol-res-label">❤ PG</div>
-        <div class="ol-hpbar-group">
-          <div class="ol-hpbar ol-hpbar-main ol-hp-editable" data-action="edit-hp" title="Doble click para editar PG actuales">
-            <div class="ol-hpbar-fill" style="{{hp.fillStyle}}"></div>
-            <div class="ol-hpbar-text">PG {{hp.value}} / {{hp.max}}</div>
-          </div>
-          <div class="ol-hpbar ol-hpbar-temp {{#if hp.tempActive}}has-temp{{/if}}">
-            <div class="ol-hpbar-fill" style="{{hp.tempFillStyle}}"></div>
-            <div class="ol-hpbar-text">Temp {{hp.temp}}</div>
-          </div>
-          {{#if hp.tempmax}}
-          <span class="ol-chip" title="Puntos de golpe máximos temporales">Máx temp: <b>{{hp.tempmax}}</b></span>
-          {{/if}}
-        </div>
-      </div>
-
-      <div class="ol-res-row">
-        <div class="ol-res-label">🔢 Slots</div>
-        <div class="ol-res-chips">
-          {{#each slots as |s|}}
-            <span class="ol-chip" title="{{s.label}}">{{#if (eq s.key "pact")}}P{{else}}{{s.level}}{{/if}}: <b>{{s.value}}</b>/<span>{{s.max}}</span></span>
-          {{/each}}
-          {{#unless slots.length}}
-            <span class="ol-chip muted">(Sin slots)</span>
-          {{/unless}}
-        </div>
-      </div>
+      {{/if}}
 
       {{#if specialCounters.length}}
-      <div class="ol-res-row">
-        <div class="ol-res-label">🎲 Usos</div>
-        <div class="ol-res-chips">
-          {{#each specialCounters as |c|}}
-            <span class="ol-chip ol-counter-chip" data-id="{{c.id}}" title="{{c.name}}">
-              {{#if c.displayName}}{{c.displayName}}{{else}}{{c.name}}{{/if}}: <b>{{c.remaining}}</b>/<span>{{c.max}}</span>
-            </span>
-          {{/each}}
+      <div class="ol-chips" aria-label="{{localize 'OLATTACK.Main.Uses'}}">
+        <span class="ol-chips-label"><i class="fa-solid fa-dice"></i></span>
+        {{#each specialCounters as |c|}}
+          <button type="button" class="ol-chip ol-counter-chip" data-id="{{c.id}}" data-tooltip="{{c.name}}">{{#if c.displayName}}{{c.displayName}}{{else}}{{c.name}}{{/if}} <b>{{c.remaining}}</b>/<span>{{c.max}}</span></button>
+        {{/each}}
+      </div>
+      {{/if}}
+
+      {{#if concentration.active}}
+      <div class="ol-conc" data-tooltip="{{localize 'OLATTACK.Main.ConcentrationActive'}}">
+        <i class="fa-solid fa-circle-notch"></i> {{localize "OLATTACK.Concentration"}}: <b>{{concentration.name}}</b>
+        <button type="button" class="ol-conc-clear" data-tooltip="{{localize 'OLATTACK.Main.EndConcentration'}}" aria-label="{{localize 'OLATTACK.Main.EndConcentration'}}"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      {{/if}}
+    </section>
+
+    {{#if hasMagic}}
+    <div class="ol-tabs" role="tablist">
+      <button type="button" role="tab" class="ol-tab-btn {{#if (eq activeTab 'main')}}active{{/if}}" data-tab="main" aria-selected="{{#if (eq activeTab 'main')}}true{{else}}false{{/if}}"><i class="fa-solid fa-burst"></i> {{localize "OLATTACK.Attack"}}</button>
+      <button type="button" role="tab" class="ol-tab-btn {{#if (eq activeTab 'magic')}}active{{/if}}" data-tab="magic" aria-selected="{{#if (eq activeTab 'magic')}}true{{else}}false{{/if}}"><i class="fa-solid fa-wand-sparkles"></i> {{localize "OLATTACK.MagicOther"}}</button>
+    </div>
+    {{/if}}
+
+    <div class="ol-body">
+
+      {{!-- ===== PESTAÑA ATAQUE ===== --}}
+      <div class="ol-tab {{#if (eq activeTab 'main')}}active{{/if}}" data-tab-panel="main">
+        <div class="ol-split">
+          <div class="ol-pane ol-pane-list">
+            <div class="ol-weapon-list">
+              {{#if combatWeapons.length}}
+              <details class="ol-group" data-memoria="g-armas" {{#if (lookup @root.open "g-armas")}}open{{/if}}>
+                <summary><i class="fa-solid fa-sword"></i> {{localize "OLATTACK.Main.Weapons"}} <span class="ol-count">{{combatWeapons.length}}</span></summary>
+                {{#each combatWeapons as |it|}}
+                  <div class="ol-weapon-btn {{#if (eq it.id @root.selectedItemId)}}selected{{/if}}" data-id="{{it.id}}" data-name="{{it.name}}" data-img="{{it.img}}" role="button" tabindex="0">
+                    <img src="{{it.img}}" alt="">
+                    <span class="ol-row-name">{{it.name}}</span>
+                    {{#if it.system.equipped}}<i class="fa-solid fa-bolt ol-badge-eq" data-tooltip="{{localize 'OLATTACK.Main.Equipped'}}"></i>{{/if}}
+                    {{#if it.olUses}}<span class="ol-uses-badge" data-id="{{it.id}}">({{it.olUses.remaining}}/{{it.olUses.max}})</span>{{/if}}
+                  </div>
+                {{/each}}
+              </details>
+              {{/if}}
+
+              {{#each combatSpellGroups as |g|}}
+              <details class="ol-group" data-memoria="{{g.key}}" {{#if (lookup @root.open g.key)}}open{{/if}}>
+                <summary><i class="fa-solid fa-wand-sparkles"></i> {{g.label}} <span class="ol-count">{{g.items.length}}</span></summary>
+                {{#each g.items as |it|}}
+                  <div class="ol-weapon-btn {{#if (eq it.id @root.selectedItemId)}}selected{{/if}}" data-id="{{it.id}}" data-name="{{it.name}}" data-img="{{it.img}}" role="button" tabindex="0">
+                    <img src="{{it.img}}" alt="">
+                    <span class="ol-row-name">{{it.name}}</span>
+                    {{#if it.olHasExtraDice}}<i class="fa-solid fa-dice ol-mini-badge" data-tooltip="{{localize 'OLATTACK.Main.HasExtraDice'}}"></i>{{/if}}
+                  </div>
+                {{/each}}
+              </details>
+              {{/each}}
+
+              {{#if combatFeatures.length}}
+              <details class="ol-group" data-memoria="g-rasgos-of" {{#if (lookup @root.open "g-rasgos-of")}}open{{/if}}>
+                <summary><i class="fa-solid fa-burst"></i> {{localize "OLATTACK.Main.OffensiveFeatures"}} <span class="ol-count">{{combatFeatures.length}}</span></summary>
+                {{#each combatFeatures as |it|}}
+                  <div class="ol-weapon-btn {{#if (eq it.id @root.selectedItemId)}}selected{{/if}}" data-id="{{it.id}}" data-name="{{it.name}}" data-img="{{it.img}}" role="button" tabindex="0">
+                    <img src="{{it.img}}" alt="">
+                    <span class="ol-row-name">{{it.name}}</span>
+                    {{#if it.olUses}}<span class="ol-uses-badge" data-id="{{it.id}}">({{it.olUses.remaining}}/{{it.olUses.max}})</span>{{/if}}
+                  </div>
+                {{/each}}
+              </details>
+              {{/if}}
+
+              {{#unless combatItems.length}}<p class="ol-empty">{{localize "OLATTACK.NoItems"}}</p>{{/unless}}
+            </div>
+            <input type="hidden" name="itemId" value="{{selectedItemId}}">
+          </div>
+
+          <div class="ol-pane ol-pane-config" id="ol-config">
+            {{#if offhandEnabled}}
+            <div class="ol-offhand">
+              <button type="button" class="ol-offhand-attack-btn">
+                <i class="fa-solid fa-hand-fist"></i>
+                <span><b>{{localize "OLATTACK.Main.Offhand"}}</b><small>{{#if offhandWeapon}}{{offhandWeapon.name}}{{else}}{{localize "OLATTACK.Main.OffhandHint"}}{{/if}}</small></span>
+              </button>
+              <input type="text" name="offhandFormula" class="ol-input" value="1d6" aria-label="{{localize 'OLATTACK.Main.OffhandFormula'}}" data-tooltip="{{localize 'OLATTACK.Main.OffhandFormula'}}">
+            </div>
+            {{/if}}
+
+            <div class="ol-toggles" role="group" aria-label="{{localize 'OLATTACK.Main.Extras'}}">
+              {{#if features.hasRage}}<label class="ol-toggle"><input type="checkbox" name="useRage"><span>{{localize "OLATTACK.Main.Rage" bonus=features.rageBonus}}</span></label>{{/if}}
+              {{#if features.hasReckless}}<label class="ol-toggle"><input type="checkbox" name="useReckless"><span>{{localize "OLATTACK.Main.Reckless"}}</span></label>{{/if}}
+              {{#if features.hasFrenzy}}<label class="ol-toggle"><input type="checkbox" name="useFrenzy"><span>{{localize "OLATTACK.Main.Frenzy"}}</span></label>{{/if}}
+              {{#if features.hasSneak}}<label class="ol-toggle"><input type="checkbox" name="useSneak"><span>{{localize "OLATTACK.Main.Sneak" formula=features.sneakFormula}}</span></label>{{/if}}
+              {{#if features.hasSavage}}<label class="ol-toggle"><input type="checkbox" name="useSavage"><span>{{localize "OLATTACK.Main.Savage"}}</span></label>{{/if}}
+              {{#if features.hasWails}}<label class="ol-toggle"><input type="checkbox" name="useWails"><span>{{localize "OLATTACK.Main.Wails" formula=features.wailsFormula remaining=features.wailsUses.remaining max=features.wailsUses.max}}</span></label>{{/if}}
+              {{#if features.hasHex}}<label class="ol-toggle"><input type="checkbox" name="useHex"><span>{{localize "OLATTACK.Main.Hex" formula=features.hexFormula}}</span></label>{{/if}}
+              <label class="ol-toggle"><input type="checkbox" name="useExtraDice"><span>{{localize "OLATTACK.Main.ExtraDie"}}</span></label>
+            </div>
+
+            {{#if features.hasMultiattack}}
+            <details class="ol-multiattack-box" data-memoria="multiataque" {{#if (lookup @root.open "multiataque")}}open{{/if}}>
+              <summary><i class="fa-solid fa-hurricane"></i> {{features.multiattack.name}}</summary>
+              <div class="ol-multiattack-desc">{{{features.multiattack.description}}}</div>
+            </details>
+            {{/if}}
+
+            <div class="ol-extra-wrap" id="ol-extra-wrap">
+              <input type="text" name="extraDiceFormula" class="ol-input" placeholder="{{localize 'OLATTACK.Main.ExtraFormula'}}" aria-label="{{localize 'OLATTACK.Main.ExtraFormula'}}" value="">
+              <input type="text" name="extraDiceLabel" class="ol-input" placeholder="{{localize 'OLATTACK.Main.ExtraLabel'}}" aria-label="{{localize 'OLATTACK.Main.ExtraLabel'}}" value="">
+            </div>
+
+            <details class="ol-settings" data-memoria="ajustes" {{#if (lookup @root.open "ajustes")}}open{{/if}}>
+              <summary><i class="fa-solid fa-sliders"></i> {{localize "OLATTACK.Main.RollSettings"}}</summary>
+              <div class="ol-fields">
+                <label class="ol-field"><span>{{localize "OLATTACK.Main.System"}}</span>
+                  <select name="systemMode" class="ol-input">
+                    <option value="homebrew">{{localize "OLATTACK.Main.SystemHomebrew"}}</option>
+                    <option value="normal">{{localize "OLATTACK.Main.SystemNormal"}}</option>
+                  </select>
+                </label>
+                <label class="ol-field"><span>{{localize "OLATTACK.Main.DamageMode"}}</span>
+                  <select name="dmgMode" class="ol-input">
+                    <option value="auto">{{localize "OLATTACK.Main.DamageAuto"}}</option>
+                    <option value="manual">{{localize "OLATTACK.Main.DamageManual"}}</option>
+                  </select>
+                </label>
+                <label class="ol-field"><span>{{localize "OLATTACK.Main.Ability"}}</span>
+                  <select name="ability" class="ol-input">
+                    <option value="auto">{{localize "OLATTACK.Main.Auto"}}</option>
+                    <option value="none">{{localize "OLATTACK.Main.None"}}</option>
+                    <option value="str">{{localize "OLATTACK.Abil.str"}}</option>
+                    <option value="dex">{{localize "OLATTACK.Abil.dex"}}</option>
+                    <option value="con">{{localize "OLATTACK.Abil.con"}}</option>
+                    <option value="int">{{localize "OLATTACK.Abil.int"}}</option>
+                    <option value="wis">{{localize "OLATTACK.Abil.wis"}}</option>
+                    <option value="cha">{{localize "OLATTACK.Abil.cha"}}</option>
+                  </select>
+                </label>
+                <label class="ol-field"><span>{{localize "OLATTACK.Main.Bonus"}}</span><input type="number" name="temp" value="0" class="ol-input"></label>
+                <label class="ol-field ol-field-check"><input type="checkbox" name="prof" checked><span>{{localize "OLATTACK.Main.AddProf"}}</span></label>
+              </div>
+              <input type="text" name="manualFormula" class="ol-input ol-manual-input" placeholder="{{localize 'OLATTACK.Main.ManualPlaceholder'}}" aria-label="{{localize 'OLATTACK.Main.DamageManual'}}" value="1d6">
+
+              <div id="ol-spell-config" class="ol-spell-section">
+                <div class="ol-fields">
+                  <label class="ol-field"><span>{{localize "OLATTACK.Main.CastLevel"}}</span><select name="spellLevel" class="ol-input"></select></label>
+                  <label class="ol-field ol-field-check"><input type="checkbox" name="consumeSlot" checked><span>{{localize "OLATTACK.Main.ConsumeSlot"}}</span></label>
+                </div>
+              </div>
+            </details>
+
+            <div class="ol-preview" id="ol-preview-text" aria-live="polite">…</div>
+          </div>
+        </div>
+      </div>
+
+      {{!-- ===== PESTAÑA RASGOS / SOPORTE ===== --}}
+      {{#if hasMagic}}
+      <div class="ol-tab {{#if (eq activeTab 'magic')}}active{{/if}}" data-tab-panel="magic">
+        <div class="ol-split">
+          <div class="ol-pane ol-pane-list">
+            <input type="search" class="ol-input ol-magic-search" placeholder="{{localize 'OLATTACK.Main.Search'}}" aria-label="{{localize 'OLATTACK.Main.Search'}}">
+            <div class="ol-weapon-list ol-magic-list">
+              {{#each utilitySpellGroups as |g|}}
+              <details class="ol-group" data-memoria="{{g.key}}" {{#if (lookup @root.open g.key)}}open{{/if}}>
+                <summary><i class="fa-solid fa-hand-sparkles"></i> {{g.label}} <span class="ol-count">{{g.items.length}}</span></summary>
+                {{#each g.items as |it|}}
+                  <div class="ol-weapon-btn {{#if (eq it.id @root.selectedItemId)}}selected{{/if}}" data-id="{{it.id}}" data-name="{{it.name}}" data-img="{{it.img}}" role="button" tabindex="0">
+                    <img src="{{it.img}}" alt="">
+                    <span class="ol-row-name">{{it.name}}</span>
+                    {{#if it.olHasExtraDice}}<i class="fa-solid fa-dice ol-mini-badge" data-tooltip="{{localize 'OLATTACK.Main.HasExtraDice'}}"></i>{{/if}}
+                  </div>
+                {{/each}}
+              </details>
+              {{/each}}
+
+              {{#if utilityFeatures.length}}
+              <details class="ol-group" data-memoria="g-otros" {{#if (lookup @root.open "g-otros")}}open{{/if}}>
+                <summary><i class="fa-solid fa-star"></i> {{localize "OLATTACK.Main.OtherFeatures"}} <span class="ol-count">{{utilityFeatures.length}}</span></summary>
+                {{#each utilityFeatures as |it|}}
+                  <div class="ol-weapon-btn {{#if (eq it.id @root.selectedItemId)}}selected{{/if}}" data-id="{{it.id}}" data-name="{{it.name}}" data-img="{{it.img}}" role="button" tabindex="0">
+                    <img src="{{it.img}}" alt="">
+                    <span class="ol-row-name">{{it.name}}</span>
+                    {{#if it.olHasExtraDice}}<i class="fa-solid fa-dice ol-mini-badge" data-tooltip="{{localize 'OLATTACK.Main.HasExtraDice'}}"></i>{{/if}}
+                    {{#if it.olUses}}<span class="ol-uses-badge" data-id="{{it.id}}">({{it.olUses.remaining}}/{{it.olUses.max}})</span>{{/if}}
+                  </div>
+                {{/each}}
+              </details>
+              {{/if}}
+            </div>
+          </div>
+
+          <div class="ol-pane ol-pane-config">
+            <div class="ol-fields">
+              <label class="ol-field"><span>{{localize "OLATTACK.Main.SlotLevel"}}</span><select name="magicSpellLevel" class="ol-input"></select></label>
+              <label class="ol-field ol-field-check"><input type="checkbox" name="magicConsumeSlot" checked><span>{{localize "OLATTACK.Main.ConsumeSlot"}}</span></label>
+            </div>
+
+            <div class="ol-rasgos-extra-block">
+              <label class="ol-toggle"><input type="checkbox" name="enableRasgosExtraDice"><span>{{localize "OLATTACK.Main.ExtraDie"}}</span></label>
+              <div class="ol-rasgos-extra-wrap">
+                <input type="text" class="ol-input" name="rasgosExtraDiceFormula" placeholder="{{localize 'OLATTACK.Main.TraitFormulaPlaceholder'}}" aria-label="{{localize 'OLATTACK.Main.ExtraFormula'}}" value="{{rasgosExtraDice.formula}}">
+                <input type="text" class="ol-input" name="rasgosExtraDiceLabel" placeholder="{{localize 'OLATTACK.Main.TraitLabelPlaceholder'}}" aria-label="{{localize 'OLATTACK.Main.ExtraLabel'}}" value="{{rasgosExtraDice.label}}">
+              </div>
+              <p class="ol-nota">{{localize "OLATTACK.Main.TraitExtraHint"}}</p>
+            </div>
+
+            <div class="ol-slot-wrap"></div>
+          </div>
         </div>
       </div>
       {{/if}}
     </div>
 
-    {{#if hasMagic}}
-    <div class="ol-tabs">
-      <button type="button" class="ol-tab-btn {{#if (eq activeTab "main")}}active{{/if}}" data-tab="main">{{localize "OLATTACK.Attack"}}</button>
-      <button type="button" class="ol-tab-btn {{#if (eq activeTab "magic")}}active{{/if}}" data-tab="magic">{{localize "OLATTACK.MagicOther"}}</button>
-    </div>
-    {{/if}}
-
-    <div class="ol-tab {{#if (eq activeTab "main")}}active{{/if}}" data-tab-panel="main">
-      <div class="ol-grid">
-        <div class="ol-col">
-          {{#if offhandEnabled}}
-          <span class="ol-section-label">⚔️ Ataque con Dos Armas</span>
-          <div class="ol-card">
-            <button type="button" class="ol-offhand-attack-btn" style="display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#4a3a1a,#3a2a10);border:2px solid #d29a38;color:#f0d090;padding:10px 12px;border-radius:8px;cursor:pointer;width:100%;">
-              <span style="font-size:18px;">🗡️</span>
-              <div style="flex:1;text-align:left;">
-                <div style="font-weight:900;">Ataque con Mano Débil</div>
-                <div style="font-size:11px;color:#aaa;">{{#if offhandWeapon}}Usando: {{offhandWeapon.name}}{{else}}Haz clic para realizar ataque adicional{{/if}}</div>
-              </div>
-            </button>
-            <div class="ol-row" style="margin-top:8px;">
-              <label>Fórmula Mano Débil</label>
-              <input type="text" name="offhandFormula" class="ol-input" value="1d6" style="width:120px;">
-            </div>
-          </div>
-          {{/if}}
-
-          <span class="ol-section-label">⚡ Selección Rápida</span>
-          <div class="ol-card">
-            <div class="ol-weapon-list">
-              <div style="font-size:11px;font-weight:bold;color:#888;text-transform:uppercase;margin:8px 0 4px;border-bottom:1px solid #444;">⚔️ Armas</div>
-              {{#each combatWeapons as |it|}}
-                <div class="ol-weapon-btn {{#if (eq it.id ../selectedItemId)}}selected{{/if}}" data-id="{{it.id}}">
-                  <img src="{{it.img}}" onerror="this.src='icons/svg/sword.svg'">
-                  <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{it.name}}</span>
-                  {{#if it.system.equipped}}<span style="color:#f1c40f;">⚡</span>{{/if}}
-                  {{#if it.olUses}}<span class="ol-uses-badge" data-id="{{it.id}}" style="font-size:10px;color:#aaa;">({{it.olUses.remaining}}/{{it.olUses.max}})</span>{{/if}}
-                </div>
-              {{/each}}
-
-              <div style="font-size:11px;font-weight:bold;color:#888;text-transform:uppercase;margin:8px 0 4px;border-bottom:1px solid #444;">✨ Hechizos de Combate</div>
-              {{#each combatSpellGroups as |g|}}
-                <div style="font-size:10px;font-weight:900;color:#777;text-transform:uppercase;margin:8px 0 4px;">{{g.label}}</div>
-                {{#each g.items as |it|}}
-                  <div class="ol-weapon-btn {{#if (eq it.id ../../selectedItemId)}}selected{{/if}}" data-id="{{it.id}}">
-                    <img src="{{it.img}}" onerror="this.src='icons/svg/mystery-man.svg'">
-                    <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{it.name}}</span>
-                    {{#if it.olHasExtraDice}}<span class="ol-mini-badge" title="Tiene dados extra">🎲</span>{{/if}}
-                  </div>
-                {{/each}}
-              {{/each}}
-
-              <div style="font-size:11px;font-weight:bold;color:#888;text-transform:uppercase;margin:8px 0 4px;border-bottom:1px solid #444;">💥 Rasgos Ofensivos</div>
-              {{#each combatFeatures as |it|}}
-                <div class="ol-weapon-btn {{#if (eq it.id ../selectedItemId)}}selected{{/if}}" data-id="{{it.id}}">
-                  <img src="{{it.img}}" onerror="this.src='icons/svg/mystery-man.svg'">
-                  <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{it.name}}</span>
-                  {{#if it.olUses}}<span class="ol-uses-badge" data-id="{{it.id}}" style="font-size:10px;color:#aaa;">({{it.olUses.remaining}}/{{it.olUses.max}})</span>{{/if}}
-                </div>
-              {{/each}}
-            </div>
-            <input type="hidden" name="itemId" value="{{selectedItemId}}">
-          </div>
-        </div>
-
-        <div class="ol-col">
-          <span class="ol-section-label">🔥 Rasgos / Extras</span>
-          <div class="ol-card">
-            {{#if features.hasRage}}<label class="ol-feature-toggle"><input type="checkbox" name="useRage"><span>Furia / Rage (+{{features.rageBonus}} Daño)</span></label>{{/if}}
-            {{#if features.hasReckless}}<label class="ol-feature-toggle"><input type="checkbox" name="useReckless"><span>Ataque Temerario (Ventaja)</span></label>{{/if}}
-            {{#if features.hasFrenzy}}<label class="ol-feature-toggle"><input type="checkbox" name="useFrenzy"><span>Frenesí / Frenzy (+2d6)</span></label>{{/if}}
-            {{#if features.hasMultiattack}}
-  <div class="ol-multiattack-box">
-    <div class="ol-multiattack-title">🌀 {{features.multiattack.name}}</div>
-    <div class="ol-multiattack-desc">{{{features.multiattack.description}}}</div>
-  </div>
-{{/if}}
-            {{#if features.hasSneak}}<label class="ol-feature-toggle"><input type="checkbox" name="useSneak"><span>Ataque Furtivo ({{features.sneakFormula}})</span></label>{{/if}}
-            {{#if features.hasSavage}}<label class="ol-feature-toggle"><input type="checkbox" name="useSavage"><span>Atacante Salvaje (Mejor de 2)</span></label>{{/if}}
-            {{#if features.hasWails}}<label class="ol-feature-toggle"><input type="checkbox" name="useWails"><span>👻 Lamentos desde la tumba ({{features.wailsFormula}}) <span style="opacity:.8;">({{features.wailsUses.remaining}}/{{features.wailsUses.max}})</span></span></label>{{/if}}
-            {{#if features.hasHex}}<label class="ol-feature-toggle"><input type="checkbox" name="useHex"><span>🧿 Maldición / Hex ({{features.hexFormula}} necrótico)</span></label>{{/if}}
-            <label class="ol-feature-toggle" style="margin-top:6px;"><input type="checkbox" name="useExtraDice"><span>✨ Sumar dado extra</span></label>
-          </div>
-
-          <span class="ol-section-label">🎲 Configuración</span>
-          <div class="ol-card" id="ol-config">
-            <div class="ol-row">
-              <label>Sistema</label>
-              <select name="systemMode" class="ol-input" style="width:180px;">
-                <option value="homebrew">🛡️ Homebrew (Ataque)</option>
-                <option value="normal">✨ Normal (Salv/Efecto)</option>
-              </select>
-            </div>
-            <div class="ol-row">
-              <label>Atributo / Bonus</label>
-              <div style="display:flex; gap:5px; align-items:center;">
-                <select name="ability" class="ol-input" style="width:120px;">
-                  <option value="auto">Auto</option>
-                  <option value="none">Ninguno</option>
-                  <option value="str">FUE</option>
-                  <option value="dex">DES</option>
-                  <option value="con">CON</option>
-                  <option value="int">INT</option>
-                  <option value="wis">SAB</option>
-                  <option value="cha">CAR</option>
-                </select>
-                <input type="number" name="temp" value="0" class="ol-input" style="width:70px;">
-              </div>
-            </div>
-
-            <div id="ol-spell-config" class="ol-spell-section">
-              <span class="ol-section-label" style="color:#9b59b6;">🔮 Configuración de Conjuro</span>
-              <div class="ol-row">
-                <label>Nivel de Lanzamiento</label>
-                <select name="spellLevel" class="ol-input" style="width:180px;"></select>
-              </div>
-              <div class="ol-row">
-                <label>Gastar Espacio</label>
-                <input type="checkbox" name="consumeSlot" checked>
-              </div>
-            </div>
-
-            <div class="ol-row" style="margin-top:10px;">
-              <label>Modo Daño</label>
-              <select name="dmgMode" class="ol-input" style="width:160px;">
-                <option value="auto">Auto (Arma)</option>
-                <option value="manual">Manual</option>
-              </select>
-            </div>
-            <input type="text" name="manualFormula" class="ol-input ol-manual-input" placeholder="Ej: 1d8 + 3" value="1d6" style="width:100%; margin-top:6px; display:none;">
-            <div class="ol-row" style="margin-top:8px;">
-              <label>Sumar Competencia</label>
-              <input type="checkbox" name="prof" checked>
-            </div>
-
-            <div class="ol-extra-wrap" id="ol-extra-wrap">
-              <div class="ol-row" style="align-items:flex-start;">
-                <label style="min-width:92px;">Dados extra</label>
-                <div style="display:flex; flex-direction:column; gap:6px; width:100%;">
-                  <input type="text" name="extraDiceFormula" class="ol-input" placeholder="Fórmula (ej: 1d4)" value="">
-                  <input type="text" name="extraDiceLabel" class="ol-input" placeholder="Etiqueta (ej: Bendición, Buff...)" value="">
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="ol-preview" id="ol-preview-text">Calculando...</div>
-
-          <div class="ol-actions" id="ol-combat-actions">
-            <button type="button" class="ol-btn ol-btn-normal" data-mode="normal">🎲 Normal</button>
-            <button type="button" class="ol-btn ol-btn-adv" data-mode="adv">🟢 Ventaja</button>
-            <button type="button" class="ol-btn ol-btn-dis" data-mode="dis">🔴 Desventaja</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    {{#if hasMagic}}
-    <div class="ol-tab {{#if (eq activeTab "magic")}}active{{/if}}" data-tab-panel="magic">
-      <div class="ol-grid">
-        <div class="ol-col">
-          <span class="ol-section-label">🪄 Magia Narrativa, Curación y Soporte</span>
-          <div class="ol-card">
-            <input type="text" class="ol-input ol-magic-search" placeholder="Buscar..." style="width:100%; margin-bottom:8px;">
-            <div class="ol-weapon-list ol-magic-list">
-              <div style="font-size:11px;font-weight:bold;color:#888;text-transform:uppercase;margin:8px 0 4px;border-bottom:1px solid #444;">🪄 Conjuros soporte</div>
-              {{#each utilitySpellGroups as |g|}}
-                <div style="font-size:10px;font-weight:900;color:#777;text-transform:uppercase;margin:8px 0 4px;">{{g.label}}</div>
-                {{#each g.items as |it|}}
-                  <div class="ol-weapon-btn {{#if (eq it.id ../../selectedItemId)}}selected{{/if}}" data-id="{{it.id}}">
-                    <img src="{{it.img}}" onerror="this.src='icons/svg/mystery-man.svg'">
-                    <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{it.name}}</span>
-                    {{#if it.olHasExtraDice}}<span class="ol-mini-badge" title="Tiene dados extra">🎲</span>{{/if}}
-                  </div>
-                {{/each}}
-              {{/each}}
-
-              <div style="font-size:11px;font-weight:bold;color:#888;text-transform:uppercase;margin:8px 0 4px;border-bottom:1px solid #444;">🎒 Otros / Rasgos</div>
-              {{#each utilityFeatures as |it|}}
-              <div class="ol-weapon-btn {{#if (eq it.id ../selectedItemId)}}selected{{/if}}" data-id="{{it.id}}">
-                <img src="{{it.img}}" onerror="this.src='icons/svg/mystery-man.svg'">
-                <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{it.name}}</span>
-                {{#if it.olHasExtraDice}}<span class="ol-mini-badge" title="Tiene dados extra">🎲</span>{{/if}}
-                {{#if it.olUses}}<span class="ol-uses-badge" data-id="{{it.id}}" style="font-size:10px;color:#aaa;">({{it.olUses.remaining}}/{{it.olUses.max}})</span>{{/if}}
-              </div>
-              {{/each}}
-            </div>
-          </div>
-        </div>
-
-        <div class="ol-col">
-          <span class="ol-section-label">🔮 Opciones de Lanzamiento</span>
-          <div class="ol-card">
-            <div class="ol-row">
-              <label>Nivel de Espacio:</label>
-              <select name="magicSpellLevel" class="ol-input" style="width:120px;"></select>
-            </div>
-            <div class="ol-row" style="margin-top:6px;">
-              <label>Gastar Espacio:</label>
-              <input type="checkbox" name="magicConsumeSlot" checked>
-            </div>
-            <hr style="border:0;border-top:1px solid #333;margin:10px 0;">
-
-            <div class="ol-rasgos-extra-block">
-              <label class="ol-feature-toggle ol-feature-toggle-compact">
-                <input type="checkbox" name="enableRasgosExtraDice">
-                <span>🎲 Activar dado extra</span>
-              </label>
-              <div class="ol-rasgos-extra-wrap">
-                <div class="ol-row">
-                  <label>Fórmula:</label>
-                  <input type="text" class="ol-input" name="rasgosExtraDiceFormula" placeholder="Ej: 1d12 + @abilities.con.mod" value="{{rasgosExtraDice.formula}}">
-                </div>
-                <div class="ol-row" style="margin-top:6px;">
-                  <label>Etiqueta:</label>
-                  <input type="text" class="ol-input" name="rasgosExtraDiceLabel" placeholder="Ej: Stone's Endurance" value="{{rasgosExtraDice.label}}">
-                </div>
-              </div>
-              <div style="margin-top:6px; font-size:11px; color:#aaa;">Se usa para rasgos/hechizos sin tirada (cuando saldría <b>EFECTO = 0</b>).</div>
-            </div>
-          </div>
-
-          <span class="ol-section-label">🔢 Espacios de Conjuro</span>
-          <div class="ol-card">
-            <div class="ol-slot-wrap"></div>
-            <div style="margin-top:8px; font-size:11px; color:#aaa;">
-              *Esta pestaña genera tarjetas de curación y efectos sin abrir ventanas del sistema.
-            </div>
-          </div>
-
-          <div class="ol-actions" style="margin-top:12px;">
-            <button type="button" class="ol-btn ol-btn-adv" data-mode="normal" id="ol-btn-cast-magic" style="background:#2a1f4a; border:1px solid #9b59b6; color:#fff;">🪄 Usar / Lanzar</button>
-          </div>
-        </div>
-      </div>
-    </div>
-    {{/if}}
+    <footer class="ol-actions" id="ol-combat-actions">
+      <button type="button" class="ol-btn ol-btn-normal" data-mode="normal"><i class="fa-solid fa-dice-d20"></i> {{localize "OLATTACK.Main.Normal"}}</button>
+      <button type="button" class="ol-btn ol-btn-adv" data-mode="adv"><i class="fa-solid fa-angles-up"></i> {{localize "OLATTACK.Main.Advantage"}}</button>
+      <button type="button" class="ol-btn ol-btn-dis" data-mode="dis"><i class="fa-solid fa-angles-down"></i> {{localize "OLATTACK.Main.Disadvantage"}}</button>
+      {{#if hasMagic}}<button type="button" class="ol-btn ol-btn-cast" data-mode="normal" id="ol-btn-cast-magic"><i class="fa-solid fa-wand-sparkles"></i> {{localize "OLATTACK.Main.UseCast"}}</button>{{/if}}
+    </footer>
   </form>
 </div>

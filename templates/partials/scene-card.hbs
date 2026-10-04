@@ -1,0 +1,70 @@
+<section class="ol-scene-card {{#if isPC}}is-pc{{/if}} {{#if hidden}}is-hidden{{/if}} {{#if isActiveTurn}}is-active-turn{{/if}} {{#if isGmHandled}}is-gm-handled{{/if}} {{#if isTargetedByUser}}is-targeted{{/if}} {{#if hasPortraitBackground}}has-bg{{/if}} {{#if enemyPrivate}}is-private{{/if}}" style="{{cardStyle}}" data-token-id="{{tokenId}}">
+  {{#if hasPortraitBackground}}<div class="ol-scene-bg" aria-hidden="true">{{#if bgMediaIsVideo}}<video src="{{bgMedia}}" autoplay muted loop playsinline></video>{{else}}<img src="{{bgMedia}}" alt="">{{/if}}</div>{{/if}}
+
+  <div class="ol-scene-top">
+    {{#if showAvatar}}<img class="ol-scene-avatar" src="{{img}}" {{#if retratoId}}data-retrato="{{retratoId}}"{{/if}} alt="">{{/if}}
+    <div class="ol-scene-ident">
+      <div class="ol-scene-name">{{tokenName}}</div>
+      <div class="ol-scene-sub">
+        <span>{{#if isPC}}{{localize "OLATTACK.Scene.PC"}}{{else}}{{localize "OLATTACK.Scene.NPC"}}{{/if}}{{#if hidden}} · {{localize "OLATTACK.Scene.Hidden"}}{{/if}}{{#if isGmHandled}} · {{localize "OLATTACK.Scene.Handling"}}{{/if}}</span>
+        {{#if showQuickTraits}}{{#each quickTraits}}<span class="ol-quicktag tone-{{tone}}" data-tooltip="{{hint}}">{{shortLabel}}</span>{{/each}}{{/if}}
+      </div>
+    </div>
+    {{#if combat}}
+    <div class="ol-scene-init">
+      <span class="ol-init-badge {{#unless hasInitiative}}is-pending{{/unless}}" data-tooltip="{{localize 'OLATTACK.Scene.Initiative'}}">{{#if hasInitiative}}{{initiative}}{{else}}—{{/if}}</span>
+      {{#if turnIndex}}<span class="ol-turn-badge" data-tooltip="{{localize 'OLATTACK.Scene.TurnOrder'}}">#{{turnIndex}}</span>{{/if}}
+      {{#if gm}}
+        <button type="button" class="ol-icon-btn" data-action="roll-init-one" data-token-id="{{tokenId}}" data-tooltip="{{localize 'OLATTACK.Scene.RollInitOne'}}" aria-label="{{localize 'OLATTACK.Scene.RollInitOne'}}"><i class="fa-solid fa-dice-d20"></i></button>
+      {{else}}
+        {{#if canRollInitiative}}<button type="button" class="ol-icon-btn" data-action="roll-initiative-one" data-token-id="{{tokenId}}" data-tooltip="{{localize 'OLATTACK.Scene.RollInitOne'}}" aria-label="{{localize 'OLATTACK.Scene.RollInitOne'}}"><i class="fa-solid fa-dice-d20"></i></button>{{/if}}
+      {{/if}}
+    </div>
+    {{/if}}
+  </div>
+
+  {{#if showHP}}
+  <div class="ol-scene-hp {{#if hp.tempActive}}has-temp{{/if}}">
+    <div class="ol-hpbar ol-hpbar-main {{#if gm}}ol-hp-editable{{/if}}" {{#if gm}}data-hp-token-id="{{tokenId}}" data-tooltip="{{localize 'OLATTACK.Main.EditHp'}}"{{/if}} role="progressbar" aria-valuemin="0" aria-valuemax="{{hp.max}}" aria-valuenow="{{hp.value}}">
+      <div class="ol-hpbar-fill" style="{{hp.fillStyle}}"></div>
+      <div class="ol-hpbar-text">{{hp.value}} / {{hp.max}}</div>
+    </div>
+    {{#if showTempHP}}{{#if hp.tempActive}}<span class="ol-chip ol-chip-temp" data-tooltip="{{localize 'OLATTACK.Main.TempHp'}}"><i class="fa-solid fa-shield-heart"></i> +{{hp.temp}}</span>{{/if}}{{/if}}
+  </div>
+  {{/if}}
+
+  {{#if showDeath}}{{#if death.visible}}
+  <div class="ol-deathsave" data-tooltip="{{localize 'OLATTACK.Scene.DeathTooltip' successes=death.successes failures=death.failures}}">
+    <span class="ol-death-track">{{#each death.successDots}}<i class="ol-death-dot success {{#if filled}}filled{{/if}}"></i>{{/each}}</span>
+    <span class="ol-death-state">{{death.stateLabel}}</span>
+    <span class="ol-death-track">{{#each death.failureDots}}<i class="ol-death-dot failure {{#if filled}}filled{{/if}}"></i>{{/each}}</span>
+  </div>
+  {{/if}}{{/if}}
+
+  {{#if showResources}}{{#if resources.length}}
+  <div class="ol-chips ol-scene-chips" aria-label="{{localize 'OLATTACK.Main.Uses'}}">
+    {{#each resources}}<span class="ol-chip {{#if depleted}}depleted{{/if}}" data-tooltip="{{name}}">{{shortName}} <b>{{remaining}}</b>/{{max}}</span>{{/each}}
+  </div>
+  {{/if}}{{/if}}
+
+  {{#if showSpellSlots}}{{#if spellSlots.length}}
+  <div class="ol-chips ol-scene-chips" aria-label="{{localize 'OLATTACK.Main.Slots'}}">
+    <span class="ol-chips-label"><i class="fa-solid fa-hexagon-nodes"></i></span>
+    {{#each spellSlots}}<span class="ol-chip {{#if depleted}}depleted{{/if}}" data-tooltip="{{label}}">{{shortLabel}} <b>{{value}}</b>/{{max}}</span>{{/each}}
+  </div>
+  {{/if}}{{/if}}
+
+  {{#if showStatuses}}{{#if statuses.length}}
+  <div class="ol-scene-statuses" aria-label="{{localize 'OLATTACK.Scene.Statuses'}}">
+    {{#each statuses}}<span class="ol-scene-status" data-tooltip="{{label}}"><img src="{{icon}}" alt="">{{label}}</span>{{/each}}
+  </div>
+  {{/if}}{{/if}}
+
+  {{#if showWeaknesses}}{{#if weaknesses.hasAny}}
+  <div class="ol-scene-traits">
+    {{#if weaknesses.vulnerability.length}}<span class="ol-chip vuln" data-tooltip="{{localize 'OLATTACK.Scene.Vulnerabilities'}}">{{localize "OLATTACK.Scene.VulnShort"}} {{#if showWeaknessDetails}}{{#each weaknesses.vulnerability}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}{{else}}<b>{{weaknesses.vulnerability.length}}</b>{{/if}}</span>{{/if}}
+    {{#if weaknesses.resistance.length}}<span class="ol-chip resist" data-tooltip="{{localize 'OLATTACK.Scene.Resistances'}}">{{localize "OLATTACK.Scene.ResistShort"}} {{#if showWeaknessDetails}}{{#each weaknesses.resistance}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}{{else}}<b>{{weaknesses.resistance.length}}</b>{{/if}}</span>{{/if}}
+    {{#if weaknesses.immunity.length}}<span class="ol-chip immune" data-tooltip="{{localize 'OLATTACK.Scene.Immunities'}}">{{localize "OLATTACK.Scene.ImmuneShort"}} {{#if showWeaknessDetails}}{{#each weaknesses.immunity}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}{{else}}<b>{{weaknesses.immunity.length}}</b>{{/if}}</span>{{/if}}
+  </div>
+  {{/if}}{{/if}}
+</section>

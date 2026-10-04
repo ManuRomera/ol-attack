@@ -10,6 +10,7 @@ export class OLAttackAPI {
     this._sceneTracker = null;
     this._gmHandledTokenId = null;
     this._playerSceneTracker = null;
+    this._mainApp = null;
   }
 
   /**
@@ -21,7 +22,13 @@ export class OLAttackAPI {
   open(opts = {}) {
     const { actor, token } = getActorContext(opts);
     if (!actor) return ui.notifications.error(i18n("OLATTACK.NoActor"));
-    const app = new OLAttackApp({ actor, token });
+    // Una sola ventana: si ya está abierta se reutiliza para el nuevo personaje.
+    let app = this._mainApp;
+    if (app?.rendered) {
+      app.setActor(actor, token);
+      return app.render({ force: true, window: { title: app.title } });
+    }
+    app = this._mainApp = new OLAttackApp({ actor, token });
     return app.render(true);
   }
 

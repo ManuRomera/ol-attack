@@ -1,5 +1,7 @@
-import { MODULE_ID, SETTING_PROFILE_WINDOW_STATE } from "../shared/constants.js";
-import { LegacyFormApplication, LegacyDialog } from "../shared/compat.js";
+import { OLApp } from "./base-app.js";
+import { olDialog } from "./dialogs.js";
+import { jq } from "../shared/compat.js";
+import { leer as leerMemoria, recordar } from "../lib/memoria.js";
 import { getAvailableStatuses } from "../lib/statuses.js";
 import {
   buildProfileCatalogEntries,
@@ -115,34 +117,29 @@ const TUTORIAL_STEPS = [
 function helperBlock(table, key) {
   return table[String(key || "auto")] || table.auto;
 }
-export class ActionProfileConfigApp extends LegacyFormApplication {
+export class ActionProfileConfigApp extends OLApp {
+  static MEMORIA = "action-profiles";
+  static DEFAULT_OPTIONS = {
+    id: "ol-action-profile-config",
+    classes: ["ol-attack", "ol-window", "ol-action-profile-config"],
+    position: { width: 1180, height: 780 },
+    window: { title: "OLATTACK.Settings.ProfilesTitle", icon: "fa-solid fa-sliders", resizable: true }
+  };
+  static PARTS = { main: { template: "modules/ol-attack/templates/action-profile-config.hbs", scrollable: [".ol-apc-list", ".ol-apc-detail"] } };
   constructor(options = {}) {
     super(options);
-    this.state = deepClone(game.settings.get(MODULE_ID, SETTING_PROFILE_WINDOW_STATE) || {});
+    this._estado = deepClone(leerMemoria(this.constructor.MEMORIA).estado || {});
     this.catalog = [];
     this.filtered = [];
-    this.selectedUid = this.state.selectedUid || null;
-    this.activeTab = this.state.activeTab || "catalog";
-    this.search = this.state.search || "";
-    this.overridesOnly = !!this.state.overridesOnly;
+    this.selectedUid = this._estado.selectedUid || null;
+    this.activeTab = this._estado.activeTab || "catalog";
+    this.search = this._estado.search || "";
+    this.overridesOnly = !!this._estado.overridesOnly;
     this.profileDrafts = {};
     this.matchKeyDrafts = {};
     this.assistantStepByUid = {};
     this.jsonTextDrafts = {};
     this.aiPromptDrafts = {};
-  }
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      id: "ol-action-profile-config",
-      title: "OL Attack · Perfiles de acción",
-      template: "modules/ol-attack/templates/action-profile-config.hbs",
-      width: 1280,
-      height: 840,
-      minWidth: 900,
-      minHeight: 620,
-      resizable: true,
-      classes: ["ol-attack", "ol-window-theme", "ol-action-profile-config"]
-    });
   }
   _getSelectedEntry() {
     return this.catalog.find((e) => e.uid === this.selectedUid) || null;
@@ -307,11 +304,10 @@ ${patternHints[meta.pattern] || patternHints.auto}`,
       area.remove();
       if (ok) return true;
     } catch (_) {}
-    await new LegacyDialog({
-      title: fallbackTitle,
-      content: `<div><p>No pude copiarlo automáticamente. Copia este texto manualmente.</p><textarea style="width:100%;height:360px;">${escapeHtml(payload)}</textarea></div>`,
-      buttons: { ok: { label: "Cerrar" } }
-    }, { width: 760 }).render(true);
+    await olDialog({
+      title: fallbackTitle, width: 760,
+      content: `<p class="ol-nota">No pude copiarlo automáticamente. Copia este texto manualmente.</p><textarea class="ol-textarea" rows="16" readonly>${escapeHtml(payload)}</textarea>`
+    });
     return false;
   }
   _getMatchKey(selected) {
@@ -346,7 +342,7 @@ ${patternHints[meta.pattern] || patternHints.auto}`,
     const selected = this.catalog.find((e) => e.uid === this.selectedUid) || this.filtered[0] || this.catalog[0] || null;
     this.selectedUid = selected?.uid || null;
     if (!selected) {
-      return { hasSelection: false, catalog: [], state: this.state, tutorialSteps: TUTORIAL_STEPS };
+      return { hasSelection: false, catalog: [], state: this._estado, tutorialSteps: TUTORIAL_STEPS };
     }
     const profile = this._ensureProfileDraft(selected);
     const globalProfiles = getGlobalActionProfiles();
@@ -396,33 +392,7 @@ ${patternHints[meta.pattern] || patternHints.auto}`,
       actionJsonValidation: validateActionConfigJson(profileToActionConfigJson(profile, { itemName: selected.itemName, identifier: selected.identifier }), profile)
     };
   }
-  _snapshotWindowState() {
-    try {
-      const pos = this.position || {};
-      this.state = {
-        ...(this.state || {}),
-        left: Number.isFinite(pos.left) ? pos.left : this.state?.left ?? null,
-        top: Number.isFinite(pos.top) ? pos.top : this.state?.top ?? null,
-        width: Number.isFinite(pos.width) ? pos.width : this.state?.width ?? null,
-        height: Number.isFinite(pos.height) ? pos.height : this.state?.height ?? null,
-        selectedUid: this.selectedUid,
-        search: this.search,
-        overridesOnly: this.overridesOnly,
-        activeTab: this.activeTab
-      };
-    } catch (_) {}
-  }
-  async _render(force = false, options = {}) {
-    this._snapshotWindowState();
-    const st = this.state || {};
-    if (!Number.isFinite(options.left) && Number.isFinite(st.left)) options.left = st.left;
-    if (!Number.isFinite(options.top) && Number.isFinite(st.top)) options.top = st.top;
-    if (!Number.isFinite(options.width) && Number.isFinite(st.width)) options.width = st.width;
-    if (!Number.isFinite(options.height) && Number.isFinite(st.height)) options.height = st.height;
-    return super._render(force, options);
-  }
   activateListeners(html) {
-    super.activateListeners(html);
     html.find(".ol-apc-tab").on("click", (ev) => {
       ev.preventDefault();
       this.activeTab = String(ev.currentTarget.dataset.tab || "catalog");
@@ -642,36 +612,29 @@ ${patternHints[meta.pattern] || patternHints.auto}`,
     html.find(".ol-apc-export").on("click", async (ev) => {
       ev.preventDefault();
       const data = JSON.stringify(getGlobalActionProfiles(), null, 2);
-      await new LegacyDialog({
-        title: "Exportar perfiles",
-        content: `<textarea style="width:100%;height:420px;">${escapeHtml(data)}</textarea>`,
-        buttons: { ok: { label: "Cerrar" } }
-      }, { width: 720 }).render(true);
+      await olDialog({
+        title: "Exportar perfiles", width: 720,
+        content: `<textarea class="ol-textarea" rows="18" readonly>${escapeHtml(data)}</textarea>`
+      });
     });
     html.find(".ol-apc-import").on("click", async (ev) => {
       ev.preventDefault();
-      const content = `<div><p>Pega aquí el JSON exportado.</p><textarea name="json" style="width:100%;height:420px;"></textarea></div>`;
-      new LegacyDialog({
-        title: "Importar perfiles",
-        content,
-        buttons: {
-          import: {
-            label: "Importar",
-            callback: async (dlgHtml) => {
-              try {
-                const parsed = JSON.parse(String(dlgHtml.find('[name="json"]').val() || "{}"));
-                await replaceGlobalActionProfiles(parsed || {});
-                ui.notifications.info("Perfiles importados.");
-                this.render(false);
-              } catch (err) {
-                ui.notifications.error(`JSON inválido: ${err?.message || err}`);
-              }
-            }
-          },
-          cancel: { label: "Cancelar" }
-        },
-        default: "import"
-      }, { width: 720 }).render(true);
+      const json = await olDialog({
+        title: "Importar perfiles", width: 720,
+        content: `<p class="ol-nota">Pega aquí el JSON exportado.</p><textarea class="ol-textarea" name="json" rows="18"></textarea>`,
+        buttons: [
+          { action: "import", label: "Importar", icon: "fa-solid fa-file-import", default: true, callback: (_ev, button) => String(button.form.elements.json.value || "{}") },
+          { action: "cancel", label: game.i18n.localize("OLATTACK.Cancel"), icon: "fa-solid fa-xmark", callback: () => null }
+        ]
+      });
+      if (json === null || json === undefined) return;
+      try {
+        await replaceGlobalActionProfiles(JSON.parse(json) || {});
+        ui.notifications.info("Perfiles importados.");
+        this.render(false);
+      } catch (err) {
+        ui.notifications.error(`JSON inválido: ${err?.message || err}`);
+      }
     });
     this._applyListFilter(html);
     html.find(".ol-apc-reset-all").on("click", async (ev) => {
@@ -784,7 +747,7 @@ ${patternHints[meta.pattern] || patternHints.auto}`,
     const rows = html.find(".ol-apc-row");
     let visible = 0;
     rows.each((_, el) => {
-      const $el = $(el);
+      const $el = jq(el);
       const hay = String($el.data("search") || "").toLowerCase();
       const hasOverride = String($el.data("hasOverride") || "0") === "1";
       const hasGlobal = String($el.data("hasGlobal") || "0") === "1";
@@ -801,24 +764,13 @@ ${patternHints[meta.pattern] || patternHints.auto}`,
       html.find('.ol-apc-list .ol-apc-empty-live').remove();
     }
   }
-  async _updateObject() {}
   async close(options = {}) {
     this._persistState();
     return super.close(options);
   }
-  async _persistState() {
-    this._snapshotWindowState();
-    const pos = this.position || {};
-    this.state = {
-      left: Number.isFinite(pos.left) ? pos.left : this.state.left,
-      top: Number.isFinite(pos.top) ? pos.top : this.state.top,
-      width: Number.isFinite(pos.width) ? pos.width : this.state.width,
-      height: Number.isFinite(pos.height) ? pos.height : this.state.height,
-      selectedUid: this.selectedUid,
-      search: this.search,
-      overridesOnly: this.overridesOnly,
-      activeTab: this.activeTab
-    };
-    await game.settings.set(MODULE_ID, SETTING_PROFILE_WINDOW_STATE, this.state);
+  _persistState() {
+    recordar(this.constructor.MEMORIA, {
+      estado: { selectedUid: this.selectedUid, search: this.search, overridesOnly: this.overridesOnly, activeTab: this.activeTab }
+    });
   }
 }

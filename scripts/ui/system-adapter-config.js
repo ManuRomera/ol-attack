@@ -1,80 +1,75 @@
 import { MODULE_ID, SETTING_SYSTEM_ADAPTER_CONFIG } from "../shared/constants.js";
-import { LegacyFormApplication } from "../shared/compat.js";
+import { OLApp } from "./base-app.js";
 import { getDefaultSystemAdapterConfig, normalizeSystemAdapterConfig } from "../shared/system-data.js";
 
-export class SystemAdapterConfigApp extends LegacyFormApplication {
+const CAMPOS_TEXTO = [
+  "hpValuePath", "hpMaxPath", "hpTempPath", "hpTempMaxPath", "deathSuccessPath", "deathFailurePath",
+  "traitsRootPath", "spellSlotsRootPath", "profPath", "spellDcPath", "spellcastingAbilityPath",
+  "abilitiesRootPath", "classesPath", "levelPath", "crPath", "acPath"
+];
+
+export class SystemAdapterConfigApp extends OLApp {
+  static MEMORIA = "system-adapter";
+
+  static DEFAULT_OPTIONS = {
+    id: "ol-system-adapter-config",
+    classes: ["ol-attack", "ol-window", "ol-system-adapter-config"],
+    position: { width: 720, height: 700 },
+    window: { title: "OLATTACK.Settings.AdapterTitle", icon: "fa-solid fa-database", resizable: true }
+  };
+
+  static PARTS = {
+    main: { template: "modules/ol-attack/templates/system-adapter-config.hbs", scrollable: [".ol-syscfg"] }
+  };
+
   constructor(options = {}) {
     super(options);
-    this.state = normalizeSystemAdapterConfig(game.settings.get(MODULE_ID, SETTING_SYSTEM_ADAPTER_CONFIG) || {});
-  }
-
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      id: "ol-system-adapter-config",
-      title: "OL Attack · Modelo de datos / Homebrew",
-      template: "modules/ol-attack/templates/system-adapter-config.hbs",
-      width: 760,
-      height: 760,
-      minWidth: 640,
-      minHeight: 520,
-      resizable: true,
-      classes: ["ol-attack", "ol-window-theme", "ol-system-adapter-config"]
-    });
+    this._estado = normalizeSystemAdapterConfig(game.settings.get(MODULE_ID, SETTING_SYSTEM_ADAPTER_CONFIG) || {});
   }
 
   getData() {
     return {
-      cfg: this.state,
-      isCustom: String(this.state.profile) === 'custom'
+      cfg: this._estado,
+      isCustom: String(this._estado.profile) === "custom"
     };
+  }
+
+  /** Lo escrito en el formulario, sin guardar todavía (para no perderlo al repintar). */
+  _leerFormulario(form) {
+    const datos = {
+      profile: form.elements.profile?.value,
+      allowAnySystemSheetButton: !!form.elements.allowAnySystemSheetButton?.checked,
+      allowAnySystemTokenHud: !!form.elements.allowAnySystemTokenHud?.checked
+    };
+    for (const k of CAMPOS_TEXTO) datos[k] = form.elements[k]?.value;
+    return datos;
   }
 
   activateListeners(html) {
-    super.activateListeners(html);
-    html.on('click', '[data-action="reset-defaults"]', async (ev) => {
+    const form = html.is("form") ? html[0] : html.find("form")[0];
+    html.on("click", '[data-action="reset-defaults"]', (ev) => {
       ev.preventDefault();
-      this.state = getDefaultSystemAdapterConfig();
+      this._estado = getDefaultSystemAdapterConfig();
       this.render(false);
     });
-    html.on('change', 'select[name="profile"]', (ev) => {
-      const profile = String(ev.currentTarget.value || 'dnd5e-2024');
-      this.state.profile = profile;
-      if (profile === 'dnd5e-2024') {
+    html.on("change", 'select[name="profile"]', (ev) => {
+      const profile = String(ev.currentTarget.value || "dnd5e-2024");
+      const actual = this._leerFormulario(form);
+      this._estado = normalizeSystemAdapterConfig({ ...this._estado, ...actual, profile });
+      if (profile === "dnd5e-2024") {
         const keepToggles = {
-          allowAnySystemSheetButton: !!this.state.allowAnySystemSheetButton,
-          allowAnySystemTokenHud: !!this.state.allowAnySystemTokenHud
+          allowAnySystemSheetButton: !!this._estado.allowAnySystemSheetButton,
+          allowAnySystemTokenHud: !!this._estado.allowAnySystemTokenHud
         };
-        this.state = { ...getDefaultSystemAdapterConfig(), ...keepToggles, profile };
+        this._estado = { ...getDefaultSystemAdapterConfig(), ...keepToggles, profile };
       }
       this.render(false);
     });
-  }
-
-  async _updateObject(_event, formData) {
-    const expanded = foundry.utils.expandObject(formData || {});
-    const incoming = {
-      profile: expanded.profile,
-      allowAnySystemSheetButton: !!expanded.allowAnySystemSheetButton,
-      allowAnySystemTokenHud: !!expanded.allowAnySystemTokenHud,
-      hpValuePath: expanded.hpValuePath,
-      hpMaxPath: expanded.hpMaxPath,
-      hpTempPath: expanded.hpTempPath,
-      hpTempMaxPath: expanded.hpTempMaxPath,
-      deathSuccessPath: expanded.deathSuccessPath,
-      deathFailurePath: expanded.deathFailurePath,
-      traitsRootPath: expanded.traitsRootPath,
-      spellSlotsRootPath: expanded.spellSlotsRootPath,
-      profPath: expanded.profPath,
-      spellDcPath: expanded.spellDcPath,
-      spellcastingAbilityPath: expanded.spellcastingAbilityPath,
-      abilitiesRootPath: expanded.abilitiesRootPath,
-      classesPath: expanded.classesPath,
-      levelPath: expanded.levelPath,
-      crPath: expanded.crPath,
-      acPath: expanded.acPath
-    };
-    this.state = normalizeSystemAdapterConfig({ ...this.state, ...incoming });
-    await game.settings.set(MODULE_ID, SETTING_SYSTEM_ADAPTER_CONFIG, this.state);
-    ui.notifications.info('Configuración de modelo de datos guardada.');
+    html.on("submit", async (ev) => {
+      ev.preventDefault();
+      this._estado = normalizeSystemAdapterConfig({ ...this._estado, ...this._leerFormulario(form) });
+      await game.settings.set(MODULE_ID, SETTING_SYSTEM_ADAPTER_CONFIG, this._estado);
+      ui.notifications.info(game.i18n.localize("OLATTACK.Settings.AdapterSaved"));
+    });
   }
 }

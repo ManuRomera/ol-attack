@@ -60,7 +60,7 @@ async function saveState() {
 }
 
 function renderTrackers() {
-  try { game.olAttack?._sceneTracker?.rendered && game.olAttack._sceneTracker.render(true); } catch (_) {}
+  try { game.olAttack?._sceneTracker?.rendered && game.olAttack._sceneTracker.render(); } catch (_) {}
 }
 
 function tokenImage(tokenDocOrToken = null, actor = null) {

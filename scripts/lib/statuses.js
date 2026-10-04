@@ -1,5 +1,7 @@
-import { LegacyDialog } from "../shared/compat.js";
+import { olDialog } from "../ui/dialogs.js";
 import { escapeHtml, gp } from "./utils.js";
+
+const t = (key, data) => game.i18n.format(key, data ?? {});
 
 function _norm(value) {
   return String(value || "")
@@ -128,18 +130,11 @@ export async function setStatusOnSubject({ actor, token = null, statusId, active
   if (!actor || !entry) return { ok: false, label: entry?.label || statusId, reason: "missing-actor-or-status" };
   const tokenDoc = _resolveTokenDocument(actor, token);
 
+  // El actor del token (también si no está vinculado) es quien alterna el estado.
+  const subject = tokenDoc?.actor ?? actor;
   try {
-    if (tokenDoc?.toggleActiveEffect) {
-      await tokenDoc.toggleActiveEffect(entry.raw || entry.id, { active: !!active });
-      return { ok: true, label: entry.label, via: "tokenDoc" };
-    }
-  } catch (err) {
-    console.warn("[ol-attack] No se pudo aplicar estado vía tokenDoc.toggleActiveEffect", err);
-  }
-
-  try {
-    if (actor?.toggleStatusEffect) {
-      await actor.toggleStatusEffect(entry.raw || entry.id, { active: !!active });
+    if (subject?.toggleStatusEffect) {
+      await subject.toggleStatusEffect(entry.id, { active: !!active });
       return { ok: true, label: entry.label, via: "actor.toggleStatusEffect" };
     }
   } catch (err) {
@@ -203,89 +198,39 @@ function _buildStatusPickerContent({ actor, mode = "apply" } = {}) {
 
 export async function openStatusPicker({ actor, token = null, mode = "apply", title = null } = {}) {
   if (!actor) return null;
-  const dialog = new LegacyDialog({
-    title: title || `${mode === "remove" ? "Quitar" : "Aplicar"} estado · ${actor.name}`,
+  return olDialog({
+    title: title || t(mode === "remove" ? "OLATTACK.Status.RemoveTitle" : "OLATTACK.Status.ApplyTitle", { name: actor.name }),
+    icon: "fa-solid fa-circle-half-stroke",
+    width: 560,
+    classes: ["ol-status-dialog"],
+    memoria: `status-${mode}`,
     content: _buildStatusPickerContent({ actor, mode }),
-    buttons: {
-      close: { label: "Cerrar" }
-    }
-  }, { width: 700, height: 760 });
-  dialog.render(true);
-  setTimeout(() => {
-    const html = dialog.element;
-    if (!html?.length) return;
-    html.addClass("ol-theme-dialog ol-status-dialog");
-    html.find(".ol-status-search").trigger("focus");
-    html.find(".ol-status-search").on("input", (ev) => {
-      const q = _norm(ev.currentTarget.value || "");
-      html.find(".ol-status-row").each((_, el) => {
-        const hay = _norm(el.dataset.search || "");
-        el.style.display = !q || hay.includes(q) ? "flex" : "none";
+    buttons: [{ action: "close", label: t("OLATTACK.Close"), icon: "fa-solid fa-xmark", default: false }],
+    render: (_ev, dialog) => {
+      const root = dialog.element;
+      const search = root.querySelector(".ol-status-search");
+      search?.focus();
+      search?.addEventListener("input", (ev) => {
+        const q = _norm(ev.target.value || "");
+        root.querySelectorAll(".ol-status-row").forEach((el) => { el.hidden = !!q && !_norm(el.dataset.search || "").includes(q); });
       });
-    });
-    html.find(".ol-status-action").on("click", async (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      const btn = ev.currentTarget;
-      const statusId = String(btn.dataset.statusId || "").trim();
-      if (!statusId) return;
-      btn.disabled = true;
-      const result = await setStatusOnSubject({ actor, token, statusId, active: mode !== "remove" });
-      if (result?.ok) {
-        ui.notifications.info(`${mode === "remove" ? "Estado quitado" : "Estado aplicado"}: ${result.label}`);
-        try {
-          for (const app of Object.values(ui.windows || {})) {
-            const name = app?.constructor?.name || "";
-            if (name === "OLAttackApp" || name === "OLSceneTrackerApp") app.render(false);
+      root.querySelectorAll(".ol-status-action").forEach((btn) => btn.addEventListener("click", async (ev) => {
+        ev.preventDefault();
+        const statusId = String(btn.dataset.statusId || "").trim();
+        if (!statusId) return;
+        btn.disabled = true;
+        const result = await setStatusOnSubject({ actor, token, statusId, active: mode !== "remove" });
+        if (result?.ok) {
+          ui.notifications.info(t(mode === "remove" ? "OLATTACK.Status.Removed" : "OLATTACK.Status.Applied", { label: result.label }));
+          for (const app of foundry.applications.instances.values()) {
+            if (app.options?.classes?.includes("ol-window") && app.rendered && typeof app.getData === "function") app.render(false);
           }
-        } catch (_) {}
-        dialog.close();
-      } else {
-        btn.disabled = false;
-        ui.notifications.warn(`No se pudo ${mode === "remove" ? "quitar" : "aplicar"} el estado.`);
-      }
-    });
-  }, 0);
-  return dialog;
-}
-
-export async function openActorStatusQuickMenu({ actor, token = null, title = null } = {}) {
-  if (!actor) return null;
-  return await new Promise((resolve) => {
-    const dialog = new LegacyDialog({
-      title: title || actor.name,
-      content: `
-        <div class="ol-quickmenu-panel ol-theme-panel">
-          <div class="ol-quickmenu-title">Opciones rápidas</div>
-          <div class="ol-quickmenu-help">Desde aquí puedes marcar el token como objetivo, indicar que el GM lo está manejando o abrir el gestor rápido de estados.</div>
-        </div>`,
-      buttons: {
-        applyState: {
-          label: "Aplicar estado",
-          callback: async () => {
-            await openStatusPicker({ actor, token, mode: "apply", title: `Aplicar estado · ${actor.name}` });
-            resolve("applyState");
-          }
-        },
-        removeState: {
-          label: "Quitar estado",
-          callback: async () => {
-            await openStatusPicker({ actor, token, mode: "remove", title: `Quitar estado · ${actor.name}` });
-            resolve("removeState");
-          }
-        },
-        cancel: {
-          label: game.i18n?.localize?.("Cancel") || "Cancelar",
-          callback: () => resolve(null)
+          dialog.close();
+        } else {
+          btn.disabled = false;
+          ui.notifications.warn(t(mode === "remove" ? "OLATTACK.Status.RemoveFailed" : "OLATTACK.Status.ApplyFailed"));
         }
-      },
-      default: "applyState"
-    }, { width: 480 });
-    dialog.render(true);
-    setTimeout(() => {
-      const html = dialog.element;
-      if (!html?.length) return;
-      html.addClass("ol-theme-dialog ol-quickmenu-dialog");
-    }, 0);
+      }));
+    }
   });
 }

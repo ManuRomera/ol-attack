@@ -1,5 +1,10 @@
-import { MODULE_ID, FLAG_SCOPE, FLAG_VISIBLE, FLAG_OFFHAND_ENABLED, FLAG_OFFHAND_WEAPON, FLAG_AUTO_CLOSE, FLAG_RASGOS_EXTRA_DICE, FLAG_CONCENTRATION } from "../shared/constants.js";
-import { LegacyApplication, LegacyDialog } from "../shared/compat.js";
+import { MODULE_ID, FLAG_VISIBLE, FLAG_OFFHAND_ENABLED, FLAG_OFFHAND_WEAPON, FLAG_AUTO_CLOSE, FLAG_RASGOS_EXTRA_DICE, FLAG_CONCENTRATION } from "../shared/constants.js";
+import { OLApp } from "./base-app.js";
+import { olNumber, olChoose } from "./dialogs.js";
+import { jq, enriquecer, distanciaEntre } from "../shared/compat.js";
+import { leerFlag, escribirFlag, borrarFlag } from "../lib/flags.js";
+import { leer as leerMemoria, recordar } from "../lib/memoria.js";
+import { EditorRetrato } from "../lib/retrato.js";
 import { getActorHpData, updateActorHpData } from "../shared/system-data.js";
 import { gp, safeNum, escapeHtml, cleanDiceBonus, sanitizeFormulaLoose } from "../lib/utils.js";
 import { getAttackItems, isCombatItem, getEquippedWeapons, getWeaponDamageType, getActorDamageBonusFormula, autoAbilityForItem } from "../lib/actor.js";
@@ -16,6 +21,8 @@ import { openVisibilityConfig } from "./visibility-config.js";
 import { openStatusPicker } from "../lib/statuses.js";
 import { openOlContextMenu, closeOlContextMenu } from "../lib/context-menu.js";
 
+const t = (key, data) => game.i18n.format(key, data ?? {});
+
 // ============================
 // Hover-card (tooltip ampliado) para items (0.5s)
 // ============================
@@ -29,37 +36,11 @@ let _olHoverReq = 0;
 
 async function _pickTokenFromList({ title, subtitle = "", tokens = [] }) {
   if (!tokens.length) return null;
-  const content = `
-    <div style="font-family:Roboto,sans-serif;">
-      ${subtitle ? `<div style="color:#bbb;font-size:12px;margin-bottom:8px;">${escapeHtml(subtitle)}</div>` : ""}
-      <div style="display:flex;flex-direction:column;gap:6px;max-height:360px;overflow:auto;">
-        ${tokens.map((t, idx) => `
-          <label style="display:flex;gap:10px;align-items:center;padding:8px 10px;border:1px solid #444;border-radius:10px;background:#1b1b1b;cursor:pointer;">
-            <input type="radio" name="olPickTok" value="${escapeHtml(t.id)}" ${idx === 0 ? "checked" : ""}>
-            <img src="${t.document.texture.src}" onerror="this.src='icons/svg/mystery-man.svg'" style="width:34px;height:34px;border-radius:8px;object-fit:cover;border:1px solid #333;background:#000;">
-            <div style="flex:1;min-width:0;">
-              <div style="font-weight:800;color:#eee;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(t.name)}</div>
-              <div style="font-size:11px;color:#aaa;">${escapeHtml(t.actor?.name || "")}</div>
-            </div>
-          </label>`).join("")}
-      </div>
-    </div>`;
-
-  return await new Promise((resolve) => {
-    new LegacyDialog({
-      title,
-      content,
-      buttons: {
-        ok: { label: "Elegir", callback: (html) => {
-          const id = html.find("input[name='olPickTok']:checked").val();
-          const tok = tokens.find((t) => t.id === id) || null;
-          resolve(tok);
-        } },
-        cancel: { label: game.i18n.localize("OLATTACK.Cancel"), callback: () => resolve(null) }
-      },
-      default: "ok"
-    }, { width: 460 }).render(true);
+  const key = await olChoose({
+    title, intro: escapeHtml(subtitle),
+    options: tokens.map((tk) => ({ key: tk.id, label: tk.name, hint: tk.actor?.name || "", img: tk.document?.texture?.src || tk.actor?.img }))
   });
+  return tokens.find((tk) => tk.id === key) || null;
 }
 
 function _ensureHoverCard() {
@@ -118,12 +99,12 @@ async function _buildHoverCardHtml(item, actor) {
     if (type === "spell") {
       const lvl = Number(item?.system?.level ?? 0);
       const school = item?.system?.school ? String(item.system.school).toUpperCase() : "";
-      subtitle = lvl === 0 ? `Cantrip ${school}`.trim() : `Nivel ${lvl} ${school}`.trim();
+      subtitle = (lvl === 0 ? `${t("OLATTACK.Spell.Cantrip")} ${school}` : `${t("OLATTACK.Spell.Level", { n: lvl })} ${school}`).trim();
     } else if (type === "weapon") {
       const wType = item?.system?.weaponType ? String(item.system.weaponType) : "";
-      subtitle = wType ? `Arma · ${wType}` : "Arma";
+      subtitle = wType ? `${t("OLATTACK.Main.Weapon")} · ${wType}` : t("OLATTACK.Main.Weapon");
     } else if (type === "feat") {
-      subtitle = "Rasgo / Dote";
+      subtitle = t("OLATTACK.Main.FeatureOrFeat");
     }
   } catch {}
 
@@ -139,7 +120,7 @@ async function _buildHoverCardHtml(item, actor) {
   // Descripción enriquecida
   let desc = "";
   try {
-    desc = await TextEditor.enrichHTML(item?.system?.description?.value ?? "", { secrets: item?.isOwner, async: true, documents: true });
+    desc = await enriquecer(item?.system?.description?.value ?? "", { secrets: item?.isOwner, relativeTo: item });
   } catch {
     desc = item?.system?.description?.value ?? "";
   }
@@ -151,14 +132,14 @@ async function _buildHoverCardHtml(item, actor) {
   return `
     <div class="ol-hovercard-inner">
       <div class="ol-hovercard-header">
-        <img src="${escapeHtml(img)}" onerror="this.src='icons/svg/mystery-man.svg'">
+        <img src="${escapeHtml(img)}" alt="">
         <div class="ol-hovercard-headtxt">
           <div class="ol-hovercard-title">${escapeHtml(name)}</div>
           <div class="ol-hovercard-sub">${escapeHtml(subtitle)}</div>
         </div>
       </div>
       ${propsHtml}
-      <div class="ol-hovercard-desc">${desc || `<span style="color:#888;">(Sin descripción)</span>`}</div>
+      <div class="ol-hovercard-desc">${desc || `<span class="ol-muted">${t("OLATTACK.Main.NoDescription")}</span>`}</div>
     </div>
   `;
 }
@@ -176,16 +157,8 @@ function _getSpecialCounterMeta(item, actor = null) {
   if (!item) return null;
   const resolved = resolveActionProfile(item, actor);
   const key = String(resolved?.profile?.specialCounterKey || "").trim();
-  const map = {
-    "bardic-inspiration": { label: "Inspiración bárdica", priority: 10 },
-    "lucky": { label: "Afortunada", priority: 20 },
-    "rage": { label: "Rabia", priority: 30 },
-    "stone-endurance": { label: "Piel de Piedra", priority: 40 },
-    "wails-from-the-grave": { label: "Lamentos desde la tumba", priority: 50 },
-    "channel-divinity": { label: "Canalizar", priority: 60 },
-    "warding-flare": { label: "Destello protector", priority: 70 }
-  };
-  return key && map[key] ? { key, ...map[key] } : null;
+  const priority = { "bardic-inspiration": 10, "lucky": 20, "rage": 30, "stone-endurance": 40, "wails-from-the-grave": 50, "channel-divinity": 60, "warding-flare": 70 };
+  return key && priority[key] ? { key, label: t(`OLATTACK.Counter.${key}`), priority: priority[key] } : null;
 }
 
 function _getSpecialCounters(actor, maxEntries = 8) {
@@ -228,14 +201,10 @@ function _findFeatureItem(actor, kind) {
   return items.find((it) => regs.some((rgx) => rgx.test(String(it?.name || "")) || rgx.test(String(gp(it, "system.identifier") || "")))) || null;
 }
 
-function _actorHpWillChange(changes) {
+/** ¿Toca el cambio algo que esta ventana muestra (PG, espacios de conjuro)? Los flags no cuentan. */
+function _actorWillChange(changes) {
   const flat = foundry.utils.flattenObject(changes || {});
-  return Object.keys(flat).some((key) => (
-    key === "system.attributes.hp.value"
-    || key === "system.attributes.hp.temp"
-    || key.endsWith(".system.attributes.hp.value")
-    || key.endsWith(".system.attributes.hp.temp")
-  ));
+  return Object.keys(flat).some((key) => /(^|\.)system\.attributes\.hp\.(value|temp|tempmax|max)$/.test(key) || /(^|\.)system\.spells\./.test(key));
 }
 
 function _getLimitedUseState(item) {
@@ -307,49 +276,59 @@ function _decorateHp(hp) {
   };
 }
 
-export class OLAttackApp extends LegacyApplication {
-  constructor({ actor, token }) {
-    super();
+export class OLAttackApp extends OLApp {
+  static MEMORIA = "ol-attack-app";
+
+  static DEFAULT_OPTIONS = {
+    id: "ol-attack-app",
+    classes: ["ol-attack", "ol-window", "ol-main-window"],
+    position: { width: 680, height: 600 },
+    window: { title: "OL Attack", icon: "fa-solid fa-burst", resizable: true, minimizable: true }
+  };
+
+  static PARTS = {
+    main: { template: "modules/ol-attack/templates/ol-attack-app.hbs", scrollable: [".ol-weapon-list", ".ol-pane-config"] }
+  };
+
+  constructor({ actor, token, ...options } = {}) {
+    super(options);
     this.actor = actor;
     this.token = token;
 
-    this.state = foundry.utils.deepClone(game.settings.get(MODULE_ID, "windowState") || {});
-    this.activeTab = this.state.tab || "main";
-    this.selectedItemId = this.state.itemId || null;
+    this.activeTab = leerMemoria(this.constructor.MEMORIA).tab || "main";
+    this.selectedItemId = null;
 
     this._dirtyPrefs = false;
     this._allPrefs = {};
     this._prefsSaveTimer = null;
     this._prefsSaveDelay = 250;
     this._prefsSaveInFlight = null;
-    this._windowStateSaveTimer = null;
     this._refreshHookFns = [];
     this._renderRefreshTimer = null;
   }
 
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      id: "ol-attack-app",
-      title: "OL Attack",
-      template: "modules/ol-attack/templates/ol-attack-app.hbs",
-      classes: ["ol-attack", "ol-window-theme"],
-      width: 720,
-      height: 720,
-      minWidth: 620,
-      minHeight: 520,
-      resizable: true,
-      minimizable: true
-    });
+  get title() {
+    return `OL Attack · ${this.actor?.name ?? ""}`;
+  }
+
+  /** Reutiliza la ventana abierta para otro personaje (no se apilan ventanas con el mismo id). */
+  setActor(actor, token = null) {
+    if (this._isOwnActor(actor)) { this.token = token ?? this.token; return; }
+    this.actor = actor;
+    this.token = token;
+    this.selectedItemId = null;
+    this._allPrefs = {};
+    this._rasgosExtraDiceMap = {};
   }
 
   async getData() {
     const actor = this.actor;
     const allAttackItems = getAttackItems(actor);
 
-    let visibilityMap = (await actor.getFlag(FLAG_SCOPE, FLAG_VISIBLE)) || {};
-    let offhandEnabled = (await actor.getFlag(FLAG_SCOPE, FLAG_OFFHAND_ENABLED)) || false;
-    let offhandWeaponId = (await actor.getFlag(FLAG_SCOPE, FLAG_OFFHAND_WEAPON)) || null;
-    let autoClose = (await actor.getFlag(FLAG_SCOPE, FLAG_AUTO_CLOSE)) !== false;
+    const visibilityMap = leerFlag(actor, FLAG_VISIBLE) || {};
+    const offhandEnabled = leerFlag(actor, FLAG_OFFHAND_ENABLED) || false;
+    const offhandWeaponId = leerFlag(actor, FLAG_OFFHAND_WEAPON) || null;
+    const autoClose = leerFlag(actor, FLAG_AUTO_CLOSE) !== false;
 
     const canConfigList = actor.isOwner || game.user.isGM;
     const features = getActorFeatures(actor);
@@ -364,14 +343,7 @@ export class OLAttackApp extends LegacyApplication {
         const raw = (gp(mi, "system.description.value") ?? gp(mi, "system.description") ?? "");
         let enriched = "";
         try {
-          if (raw && globalThis.TextEditor?.enrichHTML) {
-            enriched = await globalThis.TextEditor.enrichHTML(raw, {
-              async: true,
-              secrets: false,
-              documents: true,
-              relativeTo: actor
-            });
-          }
+          if (raw) enriched = await enriquecer(raw, { secrets: false, relativeTo: actor });
         } catch (e) {
           // Si falla el enriquecimiento, usamos el HTML original
           enriched = raw || "";
@@ -382,7 +354,7 @@ export class OLAttackApp extends LegacyApplication {
           description: enriched || raw || ""
         };
       } else {
-        features.multiattack = { id: null, name: "Multiataque", description: "" };
+        features.multiattack = { id: null, name: t("OLATTACK.Main.Multiattack"), description: "" };
       }
     }
 
@@ -406,7 +378,7 @@ export class OLAttackApp extends LegacyApplication {
     // ============================
     // Agrupar conjuros por nivel (Trucos, Nivel 1..9)
     // ============================
-    const groupSpellsByLevel = (spells = []) => {
+    const groupSpellsByLevel = (spells = [], prefix = "g-ataque") => {
       const map = new Map();
       for (let i = 0; i <= 9; i++) map.set(i, []);
       for (const sp of spells) {
@@ -419,7 +391,8 @@ export class OLAttackApp extends LegacyApplication {
         arr.sort((a,b) => a.name.localeCompare(b.name));
         out.push({
           level: lvl,
-          label: lvl === 0 ? "Trucos" : `Nivel ${lvl}`,
+          key: `${prefix}-${lvl}`,
+          label: lvl === 0 ? t("OLATTACK.Spell.Cantrips") : t("OLATTACK.Spell.Level", { n: lvl }),
           items: arr
         });
       }
@@ -431,7 +404,7 @@ export class OLAttackApp extends LegacyApplication {
     const combatFeatures = combatItems.filter((i) => i.type !== "weapon" && i.type !== "spell");
 
     const combatSpellGroups = groupSpellsByLevel(combatSpells);
-    const utilitySpellGroups = groupSpellsByLevel(utilitySpells);
+    const utilitySpellGroups = groupSpellsByLevel(utilitySpells, "g-soporte");
 
     const equippedWeapons = getEquippedWeapons(actor);
     const offhandWeapon = offhandWeaponId ? actor.items.get(offhandWeaponId) : null;
@@ -472,7 +445,7 @@ const specialCounters = _getSpecialCounters(actor);
 
 
     // Rasgos: dados extra por ítem (para rasgos/hechizos sin tirada)
-    const rasgosExtraDiceMap = (await actor.getFlag(FLAG_SCOPE, FLAG_RASGOS_EXTRA_DICE)) || {};
+    const rasgosExtraDiceMap = leerFlag(actor, FLAG_RASGOS_EXTRA_DICE) || {};
     this._rasgosExtraDiceMap = foundry.utils.duplicate(rasgosExtraDiceMap);
     const markHasExtra = (arr=[]) => {
       for (const it of arr) {
@@ -522,37 +495,24 @@ const specialCounters = _getSpecialCounters(actor);
       specialCounters,
       rasgosExtraDice,
       concentration,
-      isGM: !!game.user?.isGM
+      isGM: !!game.user?.isGM,
+      open: this._openState([
+        ["g-armas", true], ["g-rasgos-of", true], ["g-otros", true], ["ajustes", true], ["multiataque", false],
+        ...combatSpellGroups.map((g) => [g.key, true]),
+        ...utilitySpellGroups.map((g) => [g.key, true])
+      ])
     };
   }
 
-  _snapshotWindowState() {
-    try {
-      const pos = this.position || {};
-      this.state = {
-        ...(this.state || {}),
-        left: Number.isFinite(pos.left) ? pos.left : this.state?.left ?? null,
-        top: Number.isFinite(pos.top) ? pos.top : this.state?.top ?? null,
-        width: Number.isFinite(pos.width) ? pos.width : this.state?.width ?? null,
-        height: Number.isFinite(pos.height) ? pos.height : this.state?.height ?? null,
-        tab: this.activeTab,
-        itemId: this.selectedItemId
-      };
-    } catch (_) {}
+  /** Estado abierto/cerrado de las secciones plegables (recordado por usuario). */
+  _openState(pairs) {
+    return Object.fromEntries(pairs.map(([key, def]) => [key, this.abierto(key, def)]));
   }
 
-  async _render(force=false, options={}) {
-    // Capturamos primero la posición real actual para que un rerender no devuelva la ventana
-    // a una posición antigua cuando el usuario ya la ha recolocado manualmente.
-    this._snapshotWindowState();
-    const st = this.state || {};
-    if (!Number.isFinite(options.left) && Number.isFinite(st.left)) options.left = st.left;
-    if (!Number.isFinite(options.top) && Number.isFinite(st.top)) options.top = st.top;
-    if (!Number.isFinite(options.width) && Number.isFinite(st.width)) options.width = st.width;
-    if (!Number.isFinite(options.height) && Number.isFinite(st.height)) options.height = st.height;
-    const out = await super._render(force, options);
+  async _onRender(context, options) {
+    await super._onRender(context, options);
     this._registerRefreshHooks();
-    return out;
+    this._bindKeys();
   }
 
   _isOwnActor(actor) {
@@ -565,7 +525,7 @@ const specialCounters = _getSpecialCounters(actor);
     this._renderRefreshTimer = setTimeout(() => {
       this._renderRefreshTimer = null;
       try {
-        if (this.rendered) this.render(false);
+        if (this.rendered) this.render();
       } catch (_) {}
     }, 80);
   }
@@ -577,10 +537,13 @@ const specialCounters = _getSpecialCounters(actor);
       this._refreshHookFns.push({ hookName, fn });
     };
     on("updateActor", (actor, changes) => {
-      if (this._isOwnActor(actor) && _actorHpWillChange(changes)) this._queueActorRefresh();
+      if (this._isOwnActor(actor) && _actorWillChange(changes)) this._queueActorRefresh();
+    });
+    on("updateItem", (item) => {
+      if (item?.parent && this._isOwnActor(item.parent)) this._queueActorRefresh();
     });
     on("updateToken", (tokenDoc, changes) => {
-      if (tokenDoc?.actor && this._isOwnActor(tokenDoc.actor) && _actorHpWillChange(changes)) this._queueActorRefresh();
+      if (tokenDoc?.actor && this._isOwnActor(tokenDoc.actor) && _actorWillChange(changes)) this._queueActorRefresh();
     });
     on("updateActiveEffect", (effect) => {
       const actor = effect?.parent?.documentName === "Actor" ? effect.parent : effect?.parent?.actor || null;
@@ -595,26 +558,6 @@ const specialCounters = _getSpecialCounters(actor);
     this._refreshHookFns = [];
     clearTimeout(this._renderRefreshTimer);
     this._renderRefreshTimer = null;
-  }
-
-  setPosition(position = {}) {
-    const out = super.setPosition(position);
-    this._scheduleWindowStateSave();
-    return out;
-  }
-
-  _scheduleWindowStateSave() {
-    clearTimeout(this._windowStateSaveTimer);
-    this._windowStateSaveTimer = setTimeout(() => {
-      this._saveWindowState?.();
-    }, 140);
-  }
-
-  async _saveWindowState() {
-    try {
-      this._snapshotWindowState();
-      await game.settings.set(MODULE_ID, "windowState", this.state);
-    } catch (_) {}
   }
 
   async _openActorContextMenu(point = {}) {
@@ -654,17 +597,16 @@ const specialCounters = _getSpecialCounters(actor);
   }
 
   activateListeners(html) {
-    super.activateListeners(html);
-
     const form = html.find("form#ol-form");
     const itemInput = form.find('input[name="itemId"]');
 
-    const setTab = (t) => {
-      this.activeTab = t;
-      form.find(".ol-tab-btn").removeClass("active");
-      form.find(`.ol-tab-btn[data-tab="${t}"]`).addClass("active");
+    const setTab = (tab) => {
+      this.activeTab = tab;
+      form.find(".ol-tab-btn").removeClass("active").attr("aria-selected", "false");
+      form.find(`.ol-tab-btn[data-tab="${tab}"]`).addClass("active").attr("aria-selected", "true");
       form.find(".ol-tab").removeClass("active");
-      form.find(`.ol-tab[data-tab-panel="${t}"]`).addClass("active");
+      form.find(`.ol-tab[data-tab-panel="${tab}"]`).addClass("active");
+      html.attr("data-tab", tab);
       this._persistWindowState();
       this._updatePreview(html);
       this._updateRasgosExtraDiceInputs(form);
@@ -691,12 +633,24 @@ form.on("click", ".ol-counter-chip", (ev) => {
       game.olAttack?.openActionProfileConfig?.();
     });
 
-    form.on("contextmenu", ".ol-root", async (ev) => {
-      const interactiveSelector = '[data-action], button, input, select, textarea, a, label, .ol-weapon-btn, .ol-tab-btn, .ol-chip, .ol-counter-chip, .ol-hp-editable';
-      if ($(ev.target).closest(interactiveSelector).length) return;
+    // Botón derecho en la cabecera o en un hueco: estados y objetivo del personaje.
+    html.on("contextmenu", async (ev) => {
+      const interactiveSelector = '[data-action], button, input, select, textarea, a, label, summary, .ol-weapon-btn, .ol-tab-btn, .ol-chip, .ol-counter-chip, .ol-hp-editable';
+      if (jq(ev.target).closest(interactiveSelector).length) return;
       ev.preventDefault();
       ev.stopPropagation();
       await this._openActorContextMenu({ x: ev.clientX, y: ev.clientY });
+    });
+
+    form.on("keydown", ".ol-weapon-btn", (ev) => {
+      if (ev.key === " ") { ev.preventDefault(); ev.currentTarget.click(); return; }
+      if (ev.key !== "ArrowDown" && ev.key !== "ArrowUp") return;
+      const rows = form.find(".ol-tab.active .ol-weapon-btn:visible").toArray();
+      const next = rows[rows.indexOf(ev.currentTarget) + (ev.key === "ArrowDown" ? 1 : -1)];
+      if (!next) return;
+      ev.preventDefault();
+      next.focus();
+      next.click();
     });
 
     form.on("click", ".ol-weapon-btn", (ev) => {
@@ -803,13 +757,19 @@ form.on("click", ".ol-counter-chip", (ev) => {
     html.find(".ol-gear").on("click", async (ev) => {
       ev.preventDefault(); ev.stopPropagation();
       const changed = await openVisibilityConfig({ actor: this.actor });
-      if (changed) this.render(true);
+      if (changed) this.render();
     });
 
-    html.find(".ol-mini-tool[data-action]").on("click", async (ev) => {
+    html.find(".ol-tool[data-action]").on("click", async (ev) => {
       ev.preventDefault();
       const action = String(ev.currentTarget.dataset.action || "");
       await this._handleHeaderAction(action);
+    });
+
+    html.find('[data-action="edit-portrait"]').on("click keydown", (ev) => {
+      if (ev.type === "keydown" && ev.key !== "Enter" && ev.key !== " ") return;
+      ev.preventDefault();
+      EditorRetrato.abrir(this.actor);
     });
 
     // Botones de acción
@@ -836,20 +796,20 @@ form.on("click", ".ol-counter-chip", (ev) => {
       const enabled = form.find('input[name="enableRasgosExtraDice"]').is(":checked");
       const formula = sanitizeFormulaLoose(form.find('input[name="rasgosExtraDiceFormula"]').val() || "");
       const label = String(form.find('input[name="rasgosExtraDiceLabel"]').val() || "").trim();
-      let map = (await this.actor.getFlag(FLAG_SCOPE, FLAG_RASGOS_EXTRA_DICE)) || {};
+      let map = leerFlag(this.actor, FLAG_RASGOS_EXTRA_DICE) || {};
       map = foundry.utils.duplicate(map);
       if (!enabled && !formula && !label) {
         delete map[id];
       } else {
         map[id] = { enabled, formula, label };
       }
-      await this.actor.setFlag(FLAG_SCOPE, FLAG_RASGOS_EXTRA_DICE, map);
+      await escribirFlag(this.actor, FLAG_RASGOS_EXTRA_DICE, map);
       this._rasgosExtraDiceMap = foundry.utils.duplicate(map);
       this._updateRasgosExtraDiceInputs(form, id);
       // actualizar badges visuales sin rerender completo
       try {
         form.find(`.ol-weapon-btn[data-id="${id}"] .ol-mini-badge`).remove();
-        if (formula) form.find(`.ol-weapon-btn[data-id="${id}"]`).append(`<span class="ol-mini-badge" title="Tiene dados extra">🎲</span>`);
+        if (formula) form.find(`.ol-weapon-btn[data-id="${id}"]`).append(`<i class="fa-solid fa-dice ol-mini-badge" data-tooltip="${t("OLATTACK.Main.HasExtraDice")}"></i>`);
       } catch {}
     };
 
@@ -862,8 +822,8 @@ form.on("click", ".ol-counter-chip", (ev) => {
     // Concentración: limpiar flag desde el indicador
     form.on("click", ".ol-conc-clear", async (ev) => {
       ev.preventDefault();
-      await this.actor.unsetFlag(FLAG_SCOPE, FLAG_CONCENTRATION);
-      this.render(false);
+      await borrarFlag(this.actor, FLAG_CONCENTRATION);
+      this.render();
     });
 
 
@@ -892,35 +852,31 @@ form.on("click", ".ol-counter-chip", (ev) => {
     this._updatePreview(html);
     this._updateRasgosExtraDiceInputs(form);
 
-    // Keybinds (Enter)
-    const ns = ".olattack_key";
-    const cleanup = () => $(document).off(`keydown${ns}`);
-    Hooks.once("closeOLAttackApp", cleanup);
-    $(document).on(`keydown${ns}`, (e) => {
-      const rootEl = html?.[0];
-      if (!rootEl || !document.body.contains(rootEl)) return cleanup();
+  }
+
+  /** Enter tira (Mayús: ventaja, Alt: desventaja) solo cuando el foco está dentro de esta ventana. */
+  _bindKeys() {
+    if (this._keysBound || !this.element) return;
+    this._keysBound = true;
+    this.element.addEventListener("keydown", (e) => {
       const tag = document.activeElement?.tagName?.toUpperCase?.() || "";
-      if (["INPUT", "TEXTAREA", "SELECT"].includes(tag)) return;
-      if (e.key === "Enter") {
-        e.preventDefault();
-        if (e.shiftKey) return this._resolveAction({ mode: "adv", isOffhand: false });
-        if (e.altKey) return this._resolveAction({ mode: "dis", isOffhand: false });
-        return this._resolveAction({ mode: "normal", isOffhand: false });
-      }
+      if (["INPUT", "TEXTAREA", "SELECT", "BUTTON", "SUMMARY"].includes(tag)) return;
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      const mode = e.shiftKey ? "adv" : e.altKey ? "dis" : "normal";
+      this._resolveAction({ mode, isOffhand: false });
     });
   }
 
   async close(options) {
-    clearTimeout(this._windowStateSaveTimer);
     this._unregisterRefreshHooks();
     try { Hooks.callAll("closeOLAttackApp", this); } catch (_) {}
-    await this._saveWindowState();
     await this._flushPrefsPersistence();
     return super.close(options);
   }
 
   _persistWindowState() {
-    this._saveWindowState?.();
+    recordar(this.constructor.MEMORIA, { tab: this.activeTab });
   }
 
   _getSelectedItemId(form) {
@@ -1019,7 +975,7 @@ form.on("click", ".ol-counter-chip", (ev) => {
   async _rollInitiativeFromMacro() {
     const tok = this._getCombatToken();
     if (!tok?.document && !tok?.id) {
-      ui.notifications.warn('⚠️ Necesitas un token del actor en la escena para tirar iniciativa.');
+      ui.notifications.warn(t("OLATTACK.Notify.NeedToken"));
       return;
     }
     const tokenDoc = tok.document || tok;
@@ -1032,9 +988,9 @@ form.on("click", ".ol-counter-chip", (ev) => {
       const created = await combat.createEmbeddedDocuments('Combatant', [{ tokenId: tokenDoc.id, actorId: this.actor.id, hidden: !!tokenDoc.hidden }]);
       combatant = created?.[0] || combat.combatants.find((c) => c.tokenId === tokenDoc.id);
     }
-    if (!combatant) return ui.notifications.warn('⚠️ No se pudo crear el combatiente para la iniciativa.');
+    if (!combatant) return ui.notifications.warn(t("OLATTACK.Notify.NoCombatant"));
     await combat.rollInitiative([combatant.id]);
-    ui.notifications.info(`🎲 Iniciativa tirada para ${this.actor.name}.`);
+    ui.notifications.info(t("OLATTACK.Notify.InitiativeRolled", { name: this.actor.name }));
   }
 
   async _rollDeathSaveFromMacro() {
@@ -1042,60 +998,50 @@ form.on("click", ".ol-counter-chip", (ev) => {
     if (!actor) return;
     const hp = safeNum(getActorHpData(actor).value, 0);
     if (hp > 0) {
-      ui.notifications.warn(`⚠️ ${actor.name} no está a 0 PG; no corresponde tirar salvación de muerte.`);
+      ui.notifications.warn(t("OLATTACK.Notify.NotAtZero", { name: actor.name }));
       return;
     }
 
     const attempts = [
       async () => actor.rollDeathSave?.({ chatMessage: true }),
-      async () => actor.rollDeathSave?.(),
-      async () => actor.sheet?._onRollDeathSave?.(new Event('click')),
-      async () => actor.sheet?._onDeathSave?.(new Event('click'))
+      async () => actor.rollDeathSave?.()
     ];
 
     for (const fn of attempts) {
       try {
         const out = await fn();
         if (out !== false && out !== undefined) {
-          ui.notifications.info(`💀 Salvación de muerte tirada para ${actor.name}.`);
-          this.render(true);
+          ui.notifications.info(t("OLATTACK.Notify.DeathSaveRolled", { name: actor.name }));
+          this.render();
           return out;
         }
       } catch {}
     }
 
-    ui.notifications.warn('⚠️ No se pudo ejecutar la salvación de muerte desde la macro con esta versión del sistema.');
+    ui.notifications.warn(t("OLATTACK.Notify.DeathSaveFailed"));
   }
 
   async _executeRest(kind = 'short') {
     const actor = this.actor;
     const isLong = kind === 'long';
-    const label = isLong ? 'descanso largo' : 'descanso corto';
+    const label = t(isLong ? "OLATTACK.Main.LongRest" : "OLATTACK.Main.ShortRest");
 
     const attempts = isLong
-      ? [
-          async () => actor.longRest?.({ dialog: false }),
-          async () => actor.longRest?.(),
-          async () => actor.sheet?._onLongRest?.(new Event('click'))
-        ]
-      : [
-          async () => actor.shortRest?.({ dialog: false }),
-          async () => actor.shortRest?.(),
-          async () => actor.sheet?._onShortRest?.(new Event('click'))
-        ];
+      ? [async () => actor.longRest?.({ dialog: false }), async () => actor.longRest?.()]
+      : [async () => actor.shortRest?.({ dialog: false }), async () => actor.shortRest?.()];
 
     for (const fn of attempts) {
       try {
         const out = await fn();
         if (out !== false) {
-          ui.notifications.info(`🛌 ${this.actor.name}: ${label} realizado.`);
-          this.render(true);
+          ui.notifications.info(t("OLATTACK.Notify.RestDone", { name: this.actor.name, rest: label }));
+          this.render();
           return out;
         }
       } catch {}
     }
 
-    ui.notifications.warn(`⚠️ No se pudo ejecutar el ${label} desde la macro con esta versión del sistema.`);
+    ui.notifications.warn(t("OLATTACK.Notify.RestFailed", { rest: label }));
   }
 
   async _promptSetActorHp() {
@@ -1103,30 +1049,15 @@ form.on("click", ".ol-counter-chip", (ev) => {
     const hp = getActorHpData(actor);
     const current = safeNum(hp.value, 0);
     const max = safeNum(hp.max, 0);
-    return await new Promise((resolve) => {
-      new LegacyDialog({
-        title: `Modificar PG — ${actor.name}`,
-        content: `
-          <div style="display:flex;flex-direction:column;gap:8px;">
-            <label style="font-weight:700;">PG actuales (máx. ${max})</label>
-            <input type="number" name="hpValue" value="${current}" min="0" step="1" style="width:100%;">
-          </div>`,
-        buttons: {
-          ok: {
-            label: 'Guardar',
-            callback: async (html) => {
-              const raw = html.find('input[name="hpValue"]').val();
-              const next = Math.max(0, Math.min(max, safeNum(raw, current)));
-              await updateActorHpData(actor, { value: next });
-              this.render(true);
-              resolve(next);
-            }
-          },
-          cancel: { label: game.i18n.localize('Cancel'), callback: () => resolve(null) }
-        },
-        default: 'ok'
-      }, { width: 380 }).render(true);
+    const next = await olNumber({
+      title: t("OLATTACK.Main.EditHpTitle", { name: actor.name }),
+      label: t("OLATTACK.Main.EditHpLabel", { max }),
+      value: current, min: 0, max
     });
+    if (next === null || next === undefined) return null;
+    await updateActorHpData(actor, { value: next });
+    this.render();
+    return next;
   }
 
   _applyPrefsToForm(form, id) {
@@ -1192,18 +1123,17 @@ form.on("click", ".ol-counter-chip", (ev) => {
     if (!wrap.length) return;
     const slots = getAvailableSpellSlots(this.actor);
     if (!slots.length) {
-      wrap.html(`<div style="color:#888; font-size:12px;">(Este actor no tiene espacios de conjuro configurados)</div>`);
+      wrap.html(`<p class="ol-nota">${t("OLATTACK.Main.NoSlots")}</p>`);
       return;
     }
     wrap.html(slots.map((s) => {
       const used = Math.max(0, safeNum(s.max, 0) - safeNum(s.value, 0));
-      const lvlTxt = s.key === "pact" ? `Pacto (Nv.${s.level})` : `Nivel ${s.level}`;
-      return `<div class="ol-slot-row" data-level="${s.level}" data-key="${s.key}">
-        <div style="min-width:0;">
-          <div class="ol-slot-name">${escapeHtml(lvlTxt)}</div>
-          <div class="ol-slot-meta">Disponibles: <b>${s.value}</b> / ${s.max} · Usados: <b>${used}</b></div>
-        </div>
-      </div>`;
+      const lvlTxt = s.key === "pact" ? t("OLATTACK.Spell.Pact", { n: s.level }) : t("OLATTACK.Spell.Level", { n: s.level });
+      return `<button type="button" class="ol-slot-row" data-level="${s.level}" data-key="${s.key}" data-tooltip="${t("OLATTACK.Main.SlotPick")}">
+        <span class="ol-slot-name">${escapeHtml(lvlTxt)}</span>
+        <span class="ol-slot-meta"><b>${s.value}</b>/${s.max}</span>
+        <span class="ol-slot-pips" aria-hidden="true">${Array.from({ length: Math.min(s.max, 9) }, (_, i) => `<i class="${i < s.value ? "on" : ""}"></i>`).join("")}</span>
+      </button>`;
     }).join(""));
 
     // click para seleccionar nivel (en el selector activo)
@@ -1223,7 +1153,7 @@ form.on("click", ".ol-counter-chip", (ev) => {
       if (picked) {
         targetSelect.val(String(picked.value));
         this._saveFormToPrefs(form);
-        this._updatePreview(form.closest(".app"));
+        this._updatePreview(this.$main);
       }
     });
   }
@@ -1246,10 +1176,10 @@ form.on("click", ".ol-counter-chip", (ev) => {
     const buildOptions = (selectEl) => {
       selectEl.empty();
       if (baseLevel <= 0) {
-        selectEl.append(`<option value="0" data-key="">Cantrip</option>`);
+        selectEl.append(`<option value="0" data-key="">${t("OLATTACK.Spell.Cantrip")}</option>`);
         return;
       }
-      selectEl.append(`<option value="${baseLevel}" data-key="spell${baseLevel}">Base (Nivel ${baseLevel})</option>`);
+      selectEl.append(`<option value="${baseLevel}" data-key="spell${baseLevel}">${t("OLATTACK.Spell.Base", { n: baseLevel })}</option>`);
       slots.forEach((slot) => {
         if (slot.level >= baseLevel && slot.value > 0) {
           selectEl.append(`<option value="${slot.level}" data-key="${slot.key}">${escapeHtml(slot.label)}</option>`);
@@ -1271,6 +1201,7 @@ form.on("click", ".ol-counter-chip", (ev) => {
     const id = String(form.find('input[name="itemId"]').val());
     const item = this.actor.items.get(id);
     if (!item) { preview.text("—"); return; }
+    const lbl = (k) => t(`OLATTACK.Preview.${k}`);
 
     const systemMode = form.find('select[name="systemMode"]').val();
     const isHomebrew = systemMode === "homebrew";
@@ -1309,7 +1240,7 @@ form.on("click", ".ol-counter-chip", (ev) => {
       const heals = getHealingPartsDetailed(item, { upcastLevel: castLevel });
       if (parts.length) baseTxt = parts[0].formula;
       else if (heals.length) baseTxt = heals[0].formula;
-      else baseTxt = isSpell ? "Sin daño" : "Sin daño";
+      else baseTxt = lbl("NoDamage");
     }
 
     const mods = [];
@@ -1321,44 +1252,43 @@ form.on("click", ".ol-counter-chip", (ev) => {
 
       // Rasgos/Extras en fórmula (para que se vean al seleccionar)
       const feats = getActorFeatures(this.actor);
-      if (!isManual && applyRage) mods.push(`+${safeNum(feats.rageBonus, 0)} (Furia)`);
-      if (applyFrenzy) mods.push(`+2d6 (Frenesí)`);
-      if (applySneak && feats.sneakFormula && feats.sneakFormula !== "0") mods.push(`+${feats.sneakFormula} (Furtivo)`);
+      if (!isManual && applyRage) mods.push(`+${safeNum(feats.rageBonus, 0)} (${lbl("Rage")})`);
+      if (applyFrenzy) mods.push(`+2d6 (${lbl("Frenzy")})`);
+      if (applySneak && feats.sneakFormula && feats.sneakFormula !== "0") mods.push(`+${feats.sneakFormula} (${lbl("Sneak")})`);
 
       // Cansancio apilable / penalización
       const ex = getExhaustionInfo(this.actor);
-      if (ex.level > 0 && ex.penalty > 0) mods.push(`-${ex.penalty} (Cansancio ${ex.level})`);
+      if (ex.level > 0 && ex.penalty > 0) mods.push(`-${ex.penalty} (${lbl("Exhaustion")} ${ex.level})`);
 
       // Bonos/penalizadores de estados (solo numéricos para preview)
       const rawBonus = String(getActorDamageBonusFormula(this.actor, item) || "").trim();
       if (rawBonus && /^[0-9+\-*/().\s]+$/.test(rawBonus) && rawBonus !== "0") {
-        mods.push(`+(${rawBonus}) (Estados)`);
+        mods.push(`+(${rawBonus}) (${lbl("States")})`);
       }
     }
     if (applyHex) {
       const feats = getActorFeatures(this.actor);
-      if (feats.hexFormula) mods.push(`+${feats.hexFormula} (Maldición)`);
+      if (feats.hexFormula) mods.push(`+${feats.hexFormula} (${lbl("Hex")})`);
     }
     if (!isManual && temp) mods.push(temp >= 0 ? `+${temp}` : `${temp}`);
 
     let extraTxt = "";
-    if (useExtra && extraDice) extraTxt = ` + ${extraDice}${extraLabel ? ` (${extraLabel})` : " (Dados extra)"}`;
+    if (useExtra && extraDice) extraTxt = ` + ${extraDice}${extraLabel ? ` (${extraLabel})` : ` (${lbl("ExtraDice")})`}`;
     const baseSpellLevel = getSpellLevel(item);
-    if (isSpell && castLevel > baseSpellLevel) extraTxt += ` <span style="color:#9b59b6;">(Upcast Nv.${castLevel})</span>`;
+    if (isSpell && castLevel > baseSpellLevel) extraTxt += ` <span class="ol-upcast">(${lbl("Upcast")} ${castLevel})</span>`;
 
-    preview.html(`Fórmula: <b>${escapeHtml(baseTxt)} ${escapeHtml(mods.join(" "))}${extraTxt}</b>`);
+    preview.html(`<span class="ol-preview-label">${lbl("Formula")}</span> <b>${escapeHtml(baseTxt)} ${escapeHtml(mods.join(" "))}${extraTxt}</b>`);
   }
 
   async _resolveAction({ mode, isOffhand, forceMagicTab=false }) {
     const actor = this.actor;
     const token = this.token;
-    const html = this.element;
-    const form = html.find("form#ol-form");
+    const form = this.$main.find("form#ol-form");
     if (!form.length) return;
 
     const itemId = String(form.find('input[name="itemId"]').val());
     const item = isOffhand ? null : actor.items.get(itemId);
-    const autoClose = (await actor.getFlag(FLAG_SCOPE, FLAG_AUTO_CLOSE)) !== false;
+    const autoClose = leerFlag(actor, FLAG_AUTO_CLOSE) !== false;
 
     // Guardar prefs
     this._saveFormToPrefs(form);
@@ -1387,7 +1317,7 @@ form.on("click", ".ol-counter-chip", (ev) => {
       await postChoiceModeCard({ actor, token, item, targetUuids: explicitTargets, profile: resolvedActionProfile?.profile || null, spellLevel: choiceSpellLevel, slotKey: choiceSlotKey, consumeSlot: choiceConsumeSlot });
       this._persistWindowState();
       if (autoClose) this.close();
-      else this.render(true);
+      else this.render();
       return;
     }
 
@@ -1396,7 +1326,7 @@ form.on("click", ".ol-counter-chip", (ev) => {
       const isMagicTab = forceMagicTab || form.find(".ol-tab[data-tab-panel='magic']").hasClass("active");
 
     // Rasgos: dados extra por ítem (solo se usan en la pestaña RASGOS para rasgos/hechizos sin tirada)
-    const rasgosExtraDiceMap = (await actor.getFlag(FLAG_SCOPE, FLAG_RASGOS_EXTRA_DICE)) || {};
+    const rasgosExtraDiceMap = leerFlag(actor, FLAG_RASGOS_EXTRA_DICE) || {};
     this._rasgosExtraDiceMap = foundry.utils.duplicate(rasgosExtraDiceMap);
     const rasgosExtra = (isMagicTab && item) ? (rasgosExtraDiceMap?.[item.id] || null) : null;
     const rasgosExtraEnabled = !!(rasgosExtra && (rasgosExtra.enabled ?? !!String(rasgosExtra.formula || "").trim()));
@@ -1439,7 +1369,7 @@ form.on("click", ".ol-counter-chip", (ev) => {
     const isMagicTab = forceMagicTab || form.find(".ol-tab[data-tab-panel='magic']").hasClass("active");
 
     // Rasgos: dados extra por ítem (solo se usan en la pestaña RASGOS para rasgos/hechizos sin tirada)
-    const rasgosExtraDiceMap = (await actor.getFlag(FLAG_SCOPE, FLAG_RASGOS_EXTRA_DICE)) || {};
+    const rasgosExtraDiceMap = leerFlag(actor, FLAG_RASGOS_EXTRA_DICE) || {};
     this._rasgosExtraDiceMap = foundry.utils.duplicate(rasgosExtraDiceMap);
     const rasgosExtra = (isMagicTab && item) ? (rasgosExtraDiceMap?.[item.id] || null) : null;
     const rasgosExtraEnabled = !!(rasgosExtra && (rasgosExtra.enabled ?? !!String(rasgosExtra.formula || "").trim()));
@@ -1456,7 +1386,7 @@ form.on("click", ".ol-counter-chip", (ev) => {
 
     // Offhand dmg type from configured weapon
     let offhandDamageType = "bludgeoning";
-    const offhandWeaponId = await actor.getFlag(FLAG_SCOPE, FLAG_OFFHAND_WEAPON);
+    const offhandWeaponId = leerFlag(actor, FLAG_OFFHAND_WEAPON);
     const offhandWeapon = offhandWeaponId ? actor.items.get(offhandWeaponId) : null;
     if (offhandWeapon) offhandDamageType = getWeaponDamageType(offhandWeapon);
 
@@ -1592,8 +1522,8 @@ form.on("click", ".ol-counter-chip", (ev) => {
 
     // Concentración (macro): si lanzas un hechizo de concentración desde aquí, marcamos el indicador.
     if (!isOffhand && item?.type === "spell" && isConcentrationSpell(item)) {
-      await actor.setFlag(FLAG_SCOPE, FLAG_CONCENTRATION, { name: item.name, itemId: item.id, ts: Date.now() });
-      try { this.render(false); } catch {}
+      await escribirFlag(actor, FLAG_CONCENTRATION, { name: item.name, itemId: item.id, ts: Date.now() });
+      try { this.render(); } catch {}
     }
 
     // Wails from the Grave / Lamentos desde la tumba (segunda tarjeta + consumo de usos)
@@ -1620,10 +1550,8 @@ form.on("click", ".ol-counter-chip", (ev) => {
             const inRange = canvas.tokens.placeables
               .filter((t) => t?.actor && t?.id !== primary.id)
               .filter((t) => {
-                try {
-                  const d = canvas.grid.measureDistance(primary.center, t.center);
-                  return Number.isFinite(d) && d <= 30;
-                } catch { return false; }
+                const d = distanciaEntre(primary.center, t.center);
+                return Number.isFinite(d) && d <= 30;
               });
             secondary = await _pickTokenFromList({
               title: "Lamentos desde la tumba — Segundo objetivo",
@@ -1695,7 +1623,7 @@ form.on("click", ".ol-counter-chip", (ev) => {
     if (autoClose) this.close();
     else {
       // refrescar slots y preview (por si ha gastado slot/uses)
-      this.render(true);
+      this.render();
     }
     return result;
   }
@@ -1747,7 +1675,7 @@ async function getConcentrationInfo(actor) {
 
   // 2) Flag propio de OL Attack
   try {
-    const f = await actor.getFlag(FLAG_SCOPE, FLAG_CONCENTRATION);
+    const f = leerFlag(actor, FLAG_CONCENTRATION);
     if (f && f.name) return { active: true, name: String(f.name) };
   } catch {}
   return { active: false, name: "" };

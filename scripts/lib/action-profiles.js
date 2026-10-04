@@ -1,4 +1,5 @@
-import { FLAG_SCOPE, MODULE_ID, FLAG_ACTION_PROFILE_OVERRIDE, SETTING_ACTION_PROFILE_REGISTRY } from "../shared/constants.js";
+import { MODULE_ID, FLAG_ACTION_PROFILE_OVERRIDE, SETTING_ACTION_PROFILE_REGISTRY } from "../shared/constants.js";
+import { leerFlag, escribirFlag, borrarFlag } from "./flags.js";
 import { gp, safeNum, sanitizeFormulaLoose } from "./utils.js";
 import { getActivities } from "./actor.js";
 import { getDamagePartsDetailed, getHealingPartsDetailed } from "./damage.js";
@@ -336,17 +337,17 @@ export async function replaceGlobalActionProfiles(nextProfiles = {}) {
 }
 
 export function getItemActionProfileOverride(item) {
-  const raw = item?.getFlag?.(FLAG_SCOPE, FLAG_ACTION_PROFILE_OVERRIDE);
+  const raw = leerFlag(item, FLAG_ACTION_PROFILE_OVERRIDE);
   if (!raw || typeof raw !== "object") return null;
   return mergeProfile(raw);
 }
 
 export async function setItemActionProfileOverride(item, profile) {
-  return item.setFlag(FLAG_SCOPE, FLAG_ACTION_PROFILE_OVERRIDE, mergeProfile(profile));
+  return escribirFlag(item, FLAG_ACTION_PROFILE_OVERRIDE, mergeProfile(profile));
 }
 
 export async function clearItemActionProfileOverride(item) {
-  return item.unsetFlag(FLAG_SCOPE, FLAG_ACTION_PROFILE_OVERRIDE);
+  return borrarFlag(item, FLAG_ACTION_PROFILE_OVERRIDE);
 }
 
 function inferSpecialKeys(item) {

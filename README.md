@@ -1,38 +1,90 @@
-# OL Attack UI (Foundry v13 + D&D5e)
+<p align="center">
+  <img src="docs/img/banner.svg" alt="OL Attack — ataque, daño y rasgos de D&D 5e en un solo clic" width="100%">
+</p>
 
-Este módulo convierte la macro "ATAQUE" en un módulo modular y ampliable.
+<p align="center">
+  <a href="https://github.com/ManuRomera/ol-attack/releases/latest"><img alt="Última versión" src="https://img.shields.io/github/v/release/ManuRomera/ol-attack?color=d29a38&label=versi%C3%B3n&style=for-the-badge"></a>
+  <img alt="Foundry VTT 13" src="https://img.shields.io/badge/Foundry-v13-ff6400?style=for-the-badge">
+  <img alt="D&D 5e" src="https://img.shields.io/badge/D%26D-5e%205.3-8b1a1a?style=for-the-badge">
+  <img alt="Idiomas" src="https://img.shields.io/badge/idioma-ES%20%7C%20EN-3fae6a?style=for-the-badge">
+</p>
 
-## Uso rápido
-1) Activa el módulo.
-2) El módulo instala macros en la barra rápida: **1** abre OL Attack y **2** abre el monitor de combate.
-3) Abre un actor o selecciona un token.
-4) Pulsa el botón **OL Attack** en la cabecera de la hoja del actor, o ejecuta una macro:
-```js
-game.olAttack.open();
-```
+<p align="center"><b>Menos clics, más mesa.</b><br>
+Elige el arma o el hechizo, pulsa <i>Normal · Ventaja · Desventaja</i> y deja que OL Attack haga el resto:<br>
+tirada, tarjeta de chat, salvaciones, resistencias, daño aplicado y seguimiento de todo el combate.</p>
 
-## Instalación
-Manifest para Foundry:
+---
+
+## ¿Qué es?
+
+**OL Attack** es un módulo para **Foundry VTT** que reemplaza el engorroso reparto de diálogos de D&D 5e por **una sola ventana compacta** con todo lo que usas en combate: armas, hechizos, rasgos, recursos y vida. Pensado para mesas que quieren **agilidad**: la persona que juega tira en segundos y el máster controla el combate de un vistazo.
+
+<p align="center">
+  <img src="docs/img/ventana-principal.png" alt="Ventana principal de OL Attack" width="62%">
+  &nbsp;
+  <img src="docs/img/chat.png" alt="Tarjeta de chat con daño, salvación y botón para aplicar" width="30%">
+</p>
+
+## ✨ Lo que te da
+
+| | |
+|---|---|
+| ⚔️ **Todo en una ventana** | Armas, hechizos y rasgos agrupados y plegables. PG, PG temporales, espacios de conjuro, usos y concentración en una sola franja. Los botones de tirada están **siempre visibles**. |
+| 💬 **Tarjetas de chat inteligentes** | Daño o curación con desglose plegable, objetivos, botón de **salvación** para cada criatura (cada jugador tira la suya) y **Aplicar daño** con previsualización de resistencias, vulnerabilidades e inmunidades. |
+| 🧭 **Monitor de escena** | Panel del máster con la vida, estados, recursos e iniciativa de todas las fichas. Modo combate con turno activo, orden de iniciativa y un **libro de daño pendiente** para aplicar de golpe. |
+| 👥 **Vista resumida para jugadores** | Los jugadores ven el combate sin ver lo que no deben: los PNJ ajenos no revelan sus datos. |
+| 🔮 **Perfiles de acción con JSON** | Define cómo se comporta cualquier hechizo o rasgo —varias tiradas, elecciones, estados automáticos al fallar una salvación— sin depender del nombre del objeto. Importable y exportable. |
+| 🛌 **Todo a mano** | Iniciativa, salvación de muerte, descansos corto y largo, estados, objetivos y mano débil, a un clic. |
+| ♿ **Accesible de serie** | Icono en cada ventana para ajustar el tamaño del texto, alto contraste, fuente de alta legibilidad, reducir movimiento y ayuda inmediata. Navegación con teclado. |
+| 🖼️ **Encuadre de retratos** | Elige qué zona y con qué zoom se ve cada retrato, igual en las ventanas, el directorio y el combate. |
+| 💾 **Recuerda tu mesa** | Cada ventana guarda su posición, tamaño y secciones abiertas. |
+
+## 🧭 El monitor de escena, de un vistazo
+
+<p align="center">
+  <img src="docs/img/monitor.png" alt="Monitor de escena en modo combate" width="92%">
+</p>
+
+## 🚀 Instalación
+
+En Foundry: **Configuración → Módulos → Instalar módulo** y pega este manifest:
 
 ```text
 https://github.com/ManuRomera/ol-attack/releases/latest/download/module.json
 ```
 
-## Notas
-- Las preferencias se guardan en *flags del Actor* bajo `flags.ol-attack` (visibilidad, offhand, autoclose, prefs por ítem).
-- La posición, tamaño y secciones plegadas de cada ventana se guardan por usuario y mundo en el navegador (localStorage).
-- Todas las ventanas llevan un icono de accesibilidad junto al de cerrar (tamaño de texto, contraste, fuente legible, sin movimiento, ayuda inmediata).
-- Enter (con el foco en la ventana) tira; Mayús+Enter ventaja; Alt+Enter desventaja. Flechas ↑↓ recorren la lista.
-- Compatible con Foundry 13 (verificado 13.351) y dnd5e 5.3. Auditoría completa en `docs/AUDITORIA.md`.
-- Las TS jugador-a-jugador usan socket `module.ol-attack`:
-  - Jugador tira solo para sus actores (dueño).
-  - GM tira por defecto solo PNJ (si hay PJ, cada jugador tira la suya).
-  - Botón **GM: Tirar por todos** en la tarjeta para forzar con un clic.
-  - Aviso (notificación) a los jugadores propietarios cuando hay TS pendientes.
-- Los rasgos con `uses.max` en fórmula (p.ej. Inspiración Bárdica) se muestran y consumen correctamente.
+Actívalo en tu mundo de D&D 5e. Las actualizaciones llegan solas desde Foundry.
 
-## Estructura
-- `scripts/` código modular
-- `templates/` Handlebars
-- `styles/` CSS
-- `lang/` traducciones
+## 🎲 Cómo se usa
+
+1. Abre OL Attack desde el **icono de la cabecera de la ficha**, el **HUD del token** o la **macro de la barra rápida** (`game.olAttack.open()`).
+2. Elige un arma, hechizo o rasgo de la lista (↑ ↓ para recorrerla).
+3. Pulsa **Normal**, **Ventaja** o **Desventaja** (o `Enter`, `Mayús+Enter`, `Alt+Enter` con el foco en la ventana).
+4. En el chat, usa **Aplicar daño** o deja que cada jugador **tire su salvación**.
+5. El máster abre el **monitor de escena** (icono de pantalla o macro 2) para llevar el combate.
+
+> **Botón derecho** sobre la cabecera o sobre una ficha del monitor: marcar objetivo, aplicar o quitar estados.
+
+## ⚙️ Compatibilidad
+
+- **Foundry VTT** 13 (verificado en 13.351; preparado para 14).
+- **D&D 5e** (sistema `dnd5e`) 5.3. Con un perfil de datos configurable también sirve para homebrew.
+- Idiomas: español e inglés.
+
+## 🔧 Notas técnicas
+
+- Interfaz sobre **ApplicationV2 / DialogV2**. Sin dependencias externas.
+- Las preferencias van en `flags.ol-attack` del actor; la posición de las ventanas, en el navegador.
+- Comunicación jugador ↔ máster por el socket `module.ol-attack`.
+- Informe de calidad y decisiones: [`docs/AUDITORIA.md`](docs/AUDITORIA.md) · Historial: [`CHANGELOG.md`](CHANGELOG.md).
+
+## 🛠️ Para quien desarrolle
+
+```bash
+node scripts/check.mjs                      # manifiesto, idiomas y código
+git tag v0.2.1 && git push origin v0.2.1    # publica la release (GitHub Actions)
+```
+
+---
+
+<p align="center">Hecho con cariño por <a href="https://github.com/ManuRomera">Manu Romera</a> · Bruma's Rol</p>

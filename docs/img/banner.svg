@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 340" role="img" aria-label="OL Attack — ataque, daño y rasgos para D&amp;D 5e en Foundry VTT">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#14161b"/>
+      <stop offset=".6" stop-color="#1d2028"/>
+      <stop offset="1" stop-color="#2a1f12"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6d27c"/>
+      <stop offset="1" stop-color="#c58a2c"/>
+    </linearGradient>
+    <radialGradient id="glow" cx=".82" cy=".45" r=".5">
+      <stop offset="0" stop-color="#d29a38" stop-opacity=".45"/>
+      <stop offset="1" stop-color="#d29a38" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#ffffff" stroke-opacity=".035"/>
+    </pattern>
+  </defs>
+  <rect width="1280" height="340" fill="url(#bg)"/>
+  <rect width="1280" height="340" fill="url(#grid)"/>
+  <rect width="1280" height="340" fill="url(#glow)"/>
+
+  <!-- d20 -->
+  <g transform="translate(1010 170)" stroke="#f6d27c" stroke-width="3" fill="none" stroke-linejoin="round" opacity=".95">
+    <polygon points="0,-120 104,-60 104,60 0,120 -104,60 -104,-60" fill="#d29a38" fill-opacity=".08"/>
+    <polygon points="0,-120 104,60 -104,60" stroke-opacity=".7"/>
+    <polygon points="0,-120 -104,-60 -104,60" stroke-opacity=".35"/>
+    <polygon points="0,-120 104,-60 104,60" stroke-opacity=".35"/>
+    <path d="M-104,-60 L104,60 M104,-60 L-104,60 M0,120 L0,-120" stroke-opacity=".18"/>
+    <text x="0" y="22" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="64" font-weight="700" fill="#f6d27c" stroke="none">20</text>
+  </g>
+
+  <text x="70" y="168" font-family="Impact, 'Arial Narrow Bold', 'Helvetica Neue', Arial, sans-serif" font-size="118" letter-spacing="6" fill="url(#gold)">OL ATTACK</text>
+  <rect x="72" y="188" width="150" height="5" rx="2.5" fill="#d29a38"/>
+  <text x="72" y="238" font-family="'Helvetica Neue', Arial, sans-serif" font-size="30" fill="#ece8df">Ataque, daño y rasgos de D&amp;D 5e en un solo clic.</text>
+  <text x="72" y="278" font-family="'Helvetica Neue', Arial, sans-serif" font-size="21" fill="#a3a8b3">Módulo para Foundry VTT 13 · Compacto · Accesible · En español e inglés</text>
+</svg>

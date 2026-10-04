@@ -3,10 +3,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ManuRomera/ol-attack/releases/latest"><img alt="Última versión" src="https://img.shields.io/github/v/release/ManuRomera/ol-attack?color=d29a38&label=versi%C3%B3n&style=for-the-badge"></a>
-  <img alt="Foundry VTT 13" src="https://img.shields.io/badge/Foundry-v13-ff6400?style=for-the-badge">
-  <img alt="D&D 5e" src="https://img.shields.io/badge/D%26D-5e%205.3-8b1a1a?style=for-the-badge">
-  <img alt="Idiomas" src="https://img.shields.io/badge/idioma-ES%20%7C%20EN-3fae6a?style=for-the-badge">
+  <a href="https://github.com/ManuRomera/ol-attack/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/ManuRomera/ol-attack?include_prereleases&style=for-the-badge&color=b8791f&label=release"></a>
+  <a href="https://foundryvtt.com"><img alt="Foundry VTT V13" src="https://img.shields.io/badge/Foundry%20VTT-V13-57d8c8?style=for-the-badge"></a>
+  <a href="https://github.com/ManuRomera/ol-attack/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/ManuRomera/ol-attack/total?style=for-the-badge&color=ff7a1f"></a>
+  <img alt="System" src="https://img.shields.io/badge/system-dnd5e-2b3245?style=for-the-badge">
 </p>
 
 <p align="center"><b>Menos clics, más mesa.</b><br>

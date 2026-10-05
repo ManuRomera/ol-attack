@@ -1,5 +1,9 @@
 # Cambios
 
+## 0.2.1
+
+- Añadido el botón «Créditos» en los ajustes del paquete (Manu Romera · Digital RPG Design). No cambia el juego.
+
 ## 0.2.0
 
 - Interfaz rehecha sobre ApplicationV2/DialogV2: compacta, con botones de tirada siempre visibles, secciones plegables con memoria y ventanas que recuerdan posición y tamaño.

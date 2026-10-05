@@ -2,7 +2,7 @@
   "id": "ol-attack",
   "title": "OL Attack UI (D&D5e v13)",
   "description": "Ventana de ataque, daño y rasgos para D&D5e con tarjetas de chat, aplicación de daño y curación, descansos, iniciativa, salvaciones jugador a jugador, monitor de escena y perfiles de acción configurables (JSON importable/exportable con workflows de varias tiradas, elecciones y estados). Interfaz compacta, accesible y con memoria de ventana.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "authors": [
     {
       "name": "Manu Romera",
@@ -11,7 +11,8 @@
   ],
   "organization": "Bruma´s Rol",
   "esmodules": [
-    "scripts/module.js"
+    "scripts/module.js",
+    "scripts/mr-credits.mjs"
   ],
   "styles": [
     "styles/ol-attack.css"

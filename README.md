@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://github.com/ManuRomera/ol-attack/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/ManuRomera/ol-attack?include_prereleases&style=for-the-badge&color=b8791f&label=release"></a>
   <a href="https://foundryvtt.com"><img alt="Foundry VTT V13" src="https://img.shields.io/badge/Foundry%20VTT-V13-57d8c8?style=for-the-badge"></a>
-  <a href="https://github.com/ManuRomera/ol-attack/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/ManuRomera/ol-attack/total?style=for-the-badge&color=ff7a1f"></a>
+  <a href="https://github.com/ManuRomera/ol-attack/releases"><img alt="Downloads" src="https://raw.githubusercontent.com/ManuRomera/ManuRomera/main/badges/descargas/ol-attack.svg"></a>
   <img alt="System" src="https://img.shields.io/badge/system-dnd5e-2b3245?style=for-the-badge">
 </p>
 
